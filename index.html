@@ -4086,6 +4086,11 @@ function applyDrawingToTarget(targetId, points) {
         // Сохраняем траекторию
         target.drawnTrajectory = points.map(p => [p.lat, p.lng]);
         target.followingDrawnPath = true;
+        target.currentTrajectoryPoint = 1;
+        
+        // Snap position to first trajectory point
+        target.latitude = target.drawnTrajectory[0][0];
+        target.longitude = target.drawnTrajectory[0][1];
         
         // Показываем траекторию на карте
         if (target.trajectoryLine) {
@@ -4334,7 +4339,8 @@ function createTargetFromFreeDrawing() {
         lastTrajectoryUpdate: Date.now(),
         createdBy: userSessionId,
         drawnTrajectory: freeDrawingPoints.map(latlng => [latlng.lat, latlng.lng]),
-        currentTrajectoryPoint: 1
+        currentTrajectoryPoint: 1,
+        followingDrawnPath: true
     };
     
     targets.push(target);
@@ -4711,10 +4717,13 @@ function calculatePrediction(target) {
 }
 
 // Функция расчета точки назначения
+// Universal calculateDestination - auto-detects bearing units (radians or degrees)
 function calculateDestination(lat, lon, bearing, distance) {
-    const R = 6371000; // Земля в метрах
+    const R = 6371000;
     const δ = distance / R;
-    const θ = bearing;
+    
+    // Auto-detect bearing units: if |bearing| <= 2π+ε (≈6.29) → radians; else → degrees
+    const θ = (Math.abs(bearing) <= 6.3) ? bearing : (bearing * Math.PI / 180);
     
     const φ1 = lat * Math.PI / 180;
     const λ1 = lon * Math.PI / 180;
@@ -4946,7 +4955,8 @@ function createTargetFromDrawing() {
         lastTrajectoryUpdate: Date.now(),
         createdBy: userSessionId,
         drawnTrajectory: drawnTrajectory.map(latlng => [latlng.lat, latlng.lng]),
-        currentTrajectoryPoint: 1
+        currentTrajectoryPoint: 1,
+        followingDrawnPath: true
     };
     
     targets.push(target);
@@ -4992,62 +5002,9 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-// calculateDestination функция - ПОЛНАЯ ВЕРСИЯ
-function calculateDestination(lat, lon, bearing, distance) {
-    const R = 6371000;
-    const δ = distance / R;
-    const θ = bearing * Math.PI / 180;
-    
-    const φ1 = lat * Math.PI / 180;
-    const λ1 = lon * Math.PI / 180;
-    
-    const φ2 = Math.asin(Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ));
-    const λ2 = λ1 + Math.atan2(Math.sin(θ) * Math.sin(δ) * Math.cos(φ1), Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2));
-    
-    return {
-        lat: φ2 * 180 / Math.PI,
-        lng: λ2 * 180 / Math.PI
-    };
-}
+// calculateDestination - duplicate removed (using universal version above)
 
-// followDrawnTrajectory функция - ПОЛНАЯ ВЕРСИЯ
-function followDrawnTrajectory(target) {
-    if (!target.drawnTrajectory || target.drawnTrajectory.length < 2) return;
-    
-    const currentPointIndex = target.currentTrajectoryPoint || 1;
-    
-    if (currentPointIndex >= target.drawnTrajectory.length) {
-        return;
-    }
-    
-    const currentPos = [target.latitude, target.longitude];
-    const nextPoint = target.drawnTrajectory[currentPointIndex];
-    const distanceToNext = calculateDistance(currentPos[0], currentPos[1], nextPoint[0], nextPoint[1]);
-    
-    if (distanceToNext < 100) {
-        target.currentTrajectoryPoint = currentPointIndex + 1;
-        
-        if (target.currentTrajectoryPoint < target.drawnTrajectory.length) {
-            const nextNextPoint = target.drawnTrajectory[target.currentTrajectoryPoint];
-            target.course = calculateCourse(
-                { lat: nextPoint[0], lng: nextPoint[1] },
-                { lat: nextNextPoint[0], lng: nextNextPoint[1] }
-            );
-        }
-    }
-    
-    const bearing = calculateCourse(
-        { lat: currentPos[0], lng: currentPos[1] },
-        { lat: nextPoint[0], lng: nextPoint[1] }
-    );
-    
-    const distance = (target.speed * 1000 / 3600) * (Date.now() - lastUpdateTime) / 1000;
-    const newPos = calculateDestination(currentPos[0], currentPos[1], bearing, distance);
-    
-    target.latitude = newPos.lat;
-    target.longitude = newPos.lng;
-    target.course = bearing;
-}
+// followDrawnTrajectory - old version removed (using robust version below)
 
 // Додати ціль в центрі карти
 function addTargetAtCenter() {
@@ -5355,54 +5312,68 @@ function moveTargets() {
     }
 }
 
-// Функция следования по нарисованной траектории
+// Robust followDrawnTrajectory - deltaTime-based with proper path end handling
 function followDrawnTrajectory(target, deltaTime) {
-    if (!target.drawnTrajectory || target.drawnTrajectory.length < 2) return;
+    if (!target.drawnTrajectory || target.drawnTrajectory.length < 2 || !target.followingDrawnPath) return;
     
-    const currentPointIndex = target.currentTrajectoryPoint || 1;
+    let idx = (typeof target.currentTrajectoryPoint === 'number') ? target.currentTrajectoryPoint : 1;
+    const speedMps = (target.speed * 1000) / 3600;
+    let lat = target.latitude;
+    let lng = target.longitude;
+    let remaining = speedMps * deltaTime;
     
-    // Если дошли до конца траектории - начинаем сначала
-    if (currentPointIndex >= target.drawnTrajectory.length) {
-        target.currentTrajectoryPoint = 1;
-        target.latitude = target.drawnTrajectory[0][0];
-        target.longitude = target.drawnTrajectory[0][1];
-        return;
+    // While-loop to consume multiple segments in one frame when speed increases
+    while (remaining > 0 && idx < target.drawnTrajectory.length) {
+        const [nextLat, nextLng] = target.drawnTrajectory[idx];
+        const dist = calculateDistance(lat, lng, nextLat, nextLng);
+        
+        if (remaining < dist) {
+            // Move partway to next point
+            const frac = remaining / dist;
+            lat = lat + (nextLat - lat) * frac;
+            lng = lng + (nextLng - lng) * frac;
+            remaining = 0;
+        } else {
+            // Reach next point and continue
+            lat = nextLat;
+            lng = nextLng;
+            remaining -= dist;
+            idx++;
+        }
     }
     
-    const currentPos = [target.latitude, target.longitude];
-    const nextPoint = target.drawnTrajectory[currentPointIndex];
-    const distanceToNext = calculateDistance(currentPos[0], currentPos[1], nextPoint[0], nextPoint[1]);
+    // Update target position
+    target.latitude = lat;
+    target.longitude = lng;
+    target.currentTrajectoryPoint = idx;
     
-    const speedMps = target.speed * 1000 / 3600; // м/с
-    const maxStepDistance = speedMps * deltaTime;
-    
-    if (distanceToNext < maxStepDistance) {
-        // Переходим к следующей точке
-        target.currentTrajectoryPoint = currentPointIndex + 1;
-        target.latitude = nextPoint[0];
-        target.longitude = nextPoint[1];
+    // Compute course from current position to next point
+    if (idx < target.drawnTrajectory.length) {
+        const [nextLat, nextLng] = target.drawnTrajectory[idx];
+        target.course = calculateCourse(
+            { lat: lat, lng: lng },
+            { lat: nextLat, lng: nextLng }
+        );
+    } else {
+        // Reached the end - snap to last point and stop following
+        const lastPoint = target.drawnTrajectory[target.drawnTrajectory.length - 1];
+        target.latitude = lastPoint[0];
+        target.longitude = lastPoint[1];
+        target.currentTrajectoryPoint = target.drawnTrajectory.length - 1;
+        target.followingDrawnPath = false;
         
-        if (target.currentTrajectoryPoint < target.drawnTrajectory.length) {
-            const nextNextPoint = target.drawnTrajectory[target.currentTrajectoryPoint];
+        // Compute final course from second-to-last to last point
+        if (target.drawnTrajectory.length >= 2) {
+            const [lat1, lng1] = target.drawnTrajectory[target.drawnTrajectory.length - 2];
+            const [lat2, lng2] = target.drawnTrajectory[target.drawnTrajectory.length - 1];
             target.course = calculateCourse(
-                { lat: nextPoint[0], lng: nextPoint[1] },
-                { lat: nextNextPoint[0], lng: nextNextPoint[1] }
+                { lat: lat1, lng: lng1 },
+                { lat: lat2, lng: lng2 }
             );
         }
-    } else {
-        // Двигаемся к следующей точке
-        const bearing = calculateCourse(
-            { lat: currentPos[0], lng: currentPos[1] },
-            { lat: nextPoint[0], lng: nextPoint[1] }
-        );
-        
-        const newPos = calculateDestination(currentPos[0], currentPos[1], bearing, maxStepDistance);
-        target.latitude = newPos.lat;
-        target.longitude = newPos.lng;
-        target.course = bearing;
     }
     
-    target.distance += maxStepDistance;
+    target.distance += speedMps * deltaTime;
 }
 
 // Обновление кластеризации - ИСПРАВЛЕНА ЛОГИКА ПЕРЕКЛЮЧЕНИЯ
