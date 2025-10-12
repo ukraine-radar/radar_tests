@@ -3928,7 +3928,7 @@ function showPersistentPredictedTrajectory(targetId) {
     
     for (let i = 0; i < steps; i++) {
         const distance = (target.speed * 1000 / 3600) * timeStep;
-        const bearing = currentCourse * Math.PI / 180;
+        const bearing = currentCourse;
         
         const newPos = calculateDestination(currentLat, currentLng, bearing, distance);
         predictedPoints.push([newPos.lat, newPos.lng]);
@@ -4535,7 +4535,7 @@ function showPredictedTrajectory(targetId) {
     
     for (let i = 0; i < steps; i++) {
         const distance = (target.speed * 1000 / 3600) * timeStep;
-        const bearing = target.course * Math.PI / 180;
+        const bearing = target.course;
         
         const newPos = calculateDestination(currentLat, currentLng, bearing, distance);
         predictedPoints.push([newPos.lat, newPos.lng]);
@@ -4698,7 +4698,7 @@ function calculatePrediction(target) {
     
     for (let i = 0; i < steps; i++) {
         const distance = (target.speed * 1000 / 3600) * timeStep;
-        const bearing = target.course * Math.PI / 180;
+        const bearing = target.course;
         
         const newPos = calculateDestination(currentLat, currentLng, bearing, distance);
         predictedPoints.push([newPos.lat, newPos.lng]);
@@ -4708,24 +4708,6 @@ function calculatePrediction(target) {
     }
     
     return predictedPoints;
-}
-
-// Функция расчета точки назначения
-function calculateDestination(lat, lon, bearing, distance) {
-    const R = 6371000; // Земля в метрах
-    const δ = distance / R;
-    const θ = bearing;
-    
-    const φ1 = lat * Math.PI / 180;
-    const λ1 = lon * Math.PI / 180;
-    
-    const φ2 = Math.asin(Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ));
-    const λ2 = λ1 + Math.atan2(Math.sin(θ) * Math.sin(δ) * Math.cos(φ1), Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2));
-    
-    return {
-        lat: φ2 * 180 / Math.PI,
-        lng: λ2 * 180 / Math.PI
-    };
 }
 
 //showSimplePrediction
@@ -4752,7 +4734,7 @@ function showSimplePrediction(targetId) {
     
     for (let i = 0; i < steps; i++) {
         const distance = (target.speed * 1000 / 3600) * timeStep;
-        const bearing = target.course * Math.PI / 180;
+        const bearing = target.course;
         
         const newPos = calculateDestination(currentLat, currentLng, bearing, distance);
         predictedPoints.push([newPos.lat, newPos.lng]);
@@ -5017,6 +4999,8 @@ function followDrawnTrajectory(target) {
     const currentPointIndex = target.currentTrajectoryPoint || 1;
     
     if (currentPointIndex >= target.drawnTrajectory.length) {
+        // Reached end of trajectory - stop following
+        target.followingDrawnPath = false;
         return;
     }
     
@@ -5033,6 +5017,10 @@ function followDrawnTrajectory(target) {
                 { lat: nextPoint[0], lng: nextPoint[1] },
                 { lat: nextNextPoint[0], lng: nextNextPoint[1] }
             );
+        } else {
+            // Reached end of trajectory - stop following
+            target.followingDrawnPath = false;
+            return;
         }
     }
     
@@ -6541,6 +6529,20 @@ window.__fdCancel = function() {
 
 // ========== Запуск режиму рисування ==========
 window.__fdStart = function(targetId=null) {
+    // Try multiple ways to find a target:
+    // 1. Use explicit targetId if provided
+    // 2. Find from currently open popup
+    // 3. Use first target as fallback
+    if (!targetId) {
+        // Try to find target from open popup
+        for (const id in markers) {
+            if (markers[id].getPopup && markers[id].getPopup() && markers[id].getPopup().isOpen()) {
+                targetId = id;
+                break;
+            }
+        }
+    }
+    
     window.__fdTargetId = targetId || (Array.isArray(targets) && targets[0] ? targets[0].id : null);
     if (!window.__fdTargetId) { alert('Немає цілі!'); return; }
 
@@ -6725,6 +6727,20 @@ window.addEventListener("load", () => {
 
     // ========== Основной запуск режима рисования ==========
     window.__fdStart = function(targetId=null) {
+        // Try multiple ways to find a target:
+        // 1. Use explicit targetId if provided
+        // 2. Find from currently open popup
+        // 3. Use first target as fallback
+        if (!targetId) {
+            // Try to find target from open popup
+            for (const id in markers) {
+                if (markers[id].getPopup && markers[id].getPopup() && markers[id].getPopup().isOpen()) {
+                    targetId = id;
+                    break;
+                }
+            }
+        }
+        
         window.__fdTargetId = targetId || (Array.isArray(targets) && targets[0] ? targets[0].id : null);
         if (!window.__fdTargetId) { alert('Нет цели!'); return; }
         window.__fdPoints = [];
