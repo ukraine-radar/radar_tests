@@ -3644,7 +3644,16 @@ function setupRealtimeListeners() {
                 targets.push(target);
 
                 // Добавляем на карту, если маркера ещё нет
-                if (!markers[target.id]) addTargetToMap(target);
+                if (!markers[target.id]) {
+                    addTargetToMap(target);
+                } else {
+                    // Update existing marker position for non-controller clients
+                    // This ensures remote updates move the marker correctly
+                    if (target.controllerId !== localStorage.getItem('deviceId')) {
+                        markers[target.id].setLatLng([target.latitude, target.longitude]);
+                        updateMarkerRotation(target);
+                    }
+                }
             }
         });
 
@@ -4087,6 +4096,7 @@ function applyDrawingToTarget(targetId, points) {
         target.drawnTrajectory = points.map(p => [p.lat, p.lng]);
         target.followingDrawnPath = true;
         target.currentTrajectoryPoint = 1;
+        target.controllerId = localStorage.getItem('deviceId'); // Set controller
         
         // Snap position to first trajectory point
         target.latitude = target.drawnTrajectory[0][0];
@@ -5262,8 +5272,12 @@ function moveTargets() {
         const animData = smoothAnimations.get(target.id);
         
         // ЕСЛИ У ЦЕЛИ ЕСТЬ НАРИСОВАННАЯ ТРАЕКТОРИЯ - ДВИГАЕМ ПО НЕЙ
+        // Only controller client executes path-follow logic
         if (target.drawnTrajectory && target.drawnTrajectory.length > 1 && target.followingDrawnPath) {
-            followDrawnTrajectory(target, deltaTime);
+            if (target.controllerId === localStorage.getItem('deviceId')) {
+                followDrawnTrajectory(target, deltaTime);
+            }
+            // Non-controller clients skip local path-follow, rely on remote updates
         } else {
             // ОБЫЧНОЕ ДВИЖЕНИЕ ПО КУРСУ
             const distance = (target.speed * 1000 / 3600) * deltaTime;
@@ -6485,6 +6499,7 @@ window.__fdApply = function() {
     target.drawnTrajectory = window.__fdPoints.map(ll => [ll.lat, ll.lng]);
     target.currentTrajectoryPoint = 0;
     target.followingDrawnPath = true;
+    target.controllerId = localStorage.getItem('deviceId'); // Set controller
     target.latitude = target.drawnTrajectory[0][0];
     target.longitude = target.drawnTrajectory[0][1];
 
@@ -6673,6 +6688,7 @@ window.addEventListener("load", () => {
         target.drawnTrajectory = window.__fdPoints.map(ll => [ll.lat, ll.lng]);
         target.currentTrajectoryPoint = 0;
         target.followingDrawnPath = true;
+        target.controllerId = localStorage.getItem('deviceId'); // Set controller
         target.latitude = target.drawnTrajectory[0][0];
         target.longitude = target.drawnTrajectory[0][1];
         if (target.trajectoryLine) map.removeLayer(target.trajectoryLine);
