@@ -2998,9 +2998,11 @@ function addTargetToMap(target) {
     marker.bindPopup(popupContent);
     marker.on('popupopen', () => {
         popupOpenTargetId = target.id;
+        pausedTargets.add(target.id);
     });
     marker.on('popupclose', () => {
         popupOpenTargetId = null;
+        pausedTargets.delete(target.id);
         __scheduleClearTargetTrajectory(target.id, 15000);
     });
 
