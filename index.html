@@ -6419,6 +6419,297 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
+// ========== TRAJECTORY SYNCHRONIZATION HOTFIX ==========
+// This script waits for all dependencies to be ready, then installs
+// interceptors to sync drawn trajectory movements via Firebase in real-time.
+// Dependencies: followDrawnTrajectory, applyDrawingToTarget, firebase.database, targets array
+
+(function() {
+    // Guard flag to prevent double-patching
+    if (window.__trajHotfixInstalled) {
+        console.log("⚠️ Trajectory hotfix already installed, skipping");
+        return;
+    }
+
+    // Configuration
+    const POLL_INTERVAL_MS = 200;
+    const TIMEOUT_MS = 15000;
+    const startTime = Date.now();
+    
+    let pollInterval = null;
+
+    // Function to check if all dependencies are ready
+    function checkDependencies() {
+        try {
+            // Check for followDrawnTrajectory function
+            if (typeof window.followDrawnTrajectory !== 'function') {
+                return false;
+            }
+
+            // Check for applyDrawingToTarget function
+            if (typeof window.applyDrawingToTarget !== 'function') {
+                return false;
+            }
+
+            // Check for Firebase database
+            if (typeof firebase === 'undefined' || typeof firebase.database !== 'function') {
+                return false;
+            }
+
+            // Check for targets array via eval (page-scoped)
+            try {
+                const targets = (0, eval)('targets');
+                if (!Array.isArray(targets)) {
+                    return false;
+                }
+            } catch (e) {
+                return false;
+            }
+
+            return true;
+        } catch (e) {
+            console.error("Ошибка проверки зависимостей hotfix:", e);
+            return false;
+        }
+    }
+
+    // Install the trajectory synchronization hooks
+    function installHooks() {
+        console.log("🔧 Установка перехватчиков траектории...");
+
+        // Store original functions
+        const originalFollowDrawnTrajectory = window.followDrawnTrajectory;
+        const originalApplyDrawingToTarget = window.applyDrawingToTarget;
+
+        // Wrap followDrawnTrajectory to push updates to Firebase
+        window.followDrawnTrajectory = function(target, deltaTime) {
+            // Call original function
+            originalFollowDrawnTrajectory(target, deltaTime);
+
+            // Sync to Firebase if target is following a drawn path
+            if (target && target.followingDrawnPath) {
+                try {
+                    // Set controllerId from localStorage
+                    const myId = localStorage.getItem('deviceId');
+                    if (myId) {
+                        target.controllerId = myId;
+                    }
+
+                    // Build update payload
+                    const update = {
+                        latitude: target.latitude,
+                        longitude: target.longitude,
+                        course: target.course,
+                        followingDrawnPath: true,
+                        currentTrajectoryPoint: target.currentTrajectoryPoint || 1,
+                        controllerId: target.controllerId,
+                        updatedAt: Date.now()
+                    };
+
+                    // Include drawnTrajectory if it's an array
+                    if (Array.isArray(target.drawnTrajectory)) {
+                        update.drawnTrajectory = target.drawnTrajectory;
+                    }
+
+                    // Push to Firebase
+                    firebase.database().ref('targets/' + target.id).update(update);
+                    
+                    // Log concise message
+                    console.log(`🔄 Синхронизация ${target.name || target.id}: точка ${update.currentTrajectoryPoint}, курс ${update.course}°`);
+                } catch (e) {
+                    console.error("Ошибка синхронизации followDrawnTrajectory:", e);
+                }
+            }
+        };
+
+        console.log("✅ Перехватчик followDrawnTrajectory установлен");
+
+        // Wrap applyDrawingToTarget to set controllerId and send immediate update
+        window.applyDrawingToTarget = function(targetId, points) {
+            // Call original function
+            originalApplyDrawingToTarget(targetId, points);
+
+            try {
+                // Locate target via eval to access page-scoped targets array
+                const targets = (0, eval)('targets');
+                const target = targets.find(t => t.id === targetId);
+
+                if (target) {
+                    // Set controllerId
+                    const myId = localStorage.getItem('deviceId');
+                    if (myId) {
+                        target.controllerId = myId;
+                    }
+
+                    // Send immediate update to Firebase
+                    const update = {
+                        latitude: target.latitude,
+                        longitude: target.longitude,
+                        course: target.course,
+                        followingDrawnPath: true,
+                        currentTrajectoryPoint: 1,
+                        controllerId: target.controllerId,
+                        updatedAt: Date.now()
+                    };
+
+                    // Include drawnTrajectory if present
+                    if (Array.isArray(target.drawnTrajectory)) {
+                        update.drawnTrajectory = target.drawnTrajectory;
+                    }
+
+                    firebase.database().ref('targets/' + target.id).update(update);
+                    console.log(`✅ Траектория применена и синхронизирована для ${target.name || target.id}`);
+                }
+            } catch (e) {
+                console.error("Ошибка синхронизации applyDrawingToTarget:", e);
+            }
+        };
+
+        console.log("✅ Перехватчик applyDrawingToTarget установлен");
+
+        // Install Firebase listener for child_changed events
+        try {
+            firebase.database().ref('targets').on('child_changed', function(snapshot) {
+                try {
+                    const remoteData = snapshot.val();
+                    
+                    // Validate remote data
+                    if (!remoteData || !remoteData.id) {
+                        return;
+                    }
+
+                    // Access page-scoped targets array
+                    const targets = (0, eval)('targets');
+                    const localTarget = targets.find(t => t.id === remoteData.id);
+                    
+                    if (!localTarget) {
+                        return;
+                    }
+
+                    // Check if this update is from another controller
+                    const myId = localStorage.getItem('deviceId');
+                    if (remoteData.controllerId && remoteData.controllerId !== myId) {
+                        // Merge fields from remote data
+                        localTarget.latitude = remoteData.latitude;
+                        localTarget.longitude = remoteData.longitude;
+                        localTarget.course = remoteData.course;
+                        localTarget.followingDrawnPath = remoteData.followingDrawnPath;
+                        localTarget.currentTrajectoryPoint = remoteData.currentTrajectoryPoint || 1;
+                        localTarget.controllerId = remoteData.controllerId;
+
+                        // Update drawn trajectory if present and valid
+                        if (Array.isArray(remoteData.drawnTrajectory) && remoteData.drawnTrajectory.length > 1) {
+                            localTarget.drawnTrajectory = remoteData.drawnTrajectory;
+                        }
+
+                        // Update marker position if it exists
+                        try {
+                            const markers = (0, eval)('markers');
+                            if (markers[localTarget.id]) {
+                                const newLatLng = L.latLng(localTarget.latitude, localTarget.longitude);
+                                markers[localTarget.id].setLatLng(newLatLng);
+
+                                // Update marker rotation if function is available
+                                try {
+                                    const updateMarkerRotation = (0, eval)('updateMarkerRotation');
+                                    if (typeof updateMarkerRotation === 'function') {
+                                        updateMarkerRotation(localTarget);
+                                    }
+                                } catch (e) {
+                                    // updateMarkerRotation may not exist, that's ok
+                                }
+                            }
+                        } catch (e) {
+                            // markers may not be accessible, that's ok
+                        }
+
+                        // Update trajectory history and polyline if available
+                        try {
+                            const targetHistory = (0, eval)('targetHistory');
+                            if (targetHistory && targetHistory[localTarget.id]) {
+                                targetHistory[localTarget.id].push({
+                                    lat: localTarget.latitude,
+                                    lng: localTarget.longitude,
+                                    timestamp: Date.now()
+                                });
+
+                                // Redraw polyline if trajectories are shown
+                                const showTrajectories = (0, eval)('showTrajectories');
+                                const polylines = (0, eval)('polylines');
+                                
+                                if (showTrajectories && polylines && polylines[localTarget.id]) {
+                                    const history = targetHistory[localTarget.id];
+                                    const historyPoints = history.map(h => [h.lat, h.lng]);
+                                    polylines[localTarget.id].setLatLngs(historyPoints);
+                                }
+                            }
+                        } catch (e) {
+                            // History/polylines may not be accessible, that's ok
+                        }
+
+                        console.log(`📥 Получено обновление от контроллера ${remoteData.controllerId.substring(0, 8)} для ${localTarget.name || localTarget.id}`);
+                    }
+                } catch (e) {
+                    console.error("Ошибка обработки child_changed:", e);
+                }
+            });
+
+            console.log("✅ Обработчик Firebase установлен");
+        } catch (e) {
+            console.error("Ошибка установки Firebase listener:", e);
+        }
+
+        // Mark as installed
+        window.__trajHotfixInstalled = true;
+        console.log("✅ Trajectory hotfix полностью установлен");
+    }
+
+    // Polling function to check dependencies
+    function tryInstall() {
+        // Check timeout
+        if (Date.now() - startTime > TIMEOUT_MS) {
+            console.error("⏱️ Timeout ожидания зависимостей для trajectory hotfix");
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+            return;
+        }
+
+        // Check if dependencies are ready
+        if (checkDependencies()) {
+            console.log("✅ Все зависимости готовы, установка hotfix...");
+            
+            // Clear polling interval
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+
+            // Install hooks
+            installHooks();
+        }
+    }
+
+    // Start polling for dependencies
+    console.log("🔍 Ожидание зависимостей для trajectory hotfix...");
+    pollInterval = setInterval(tryInstall, POLL_INTERVAL_MS);
+
+    // Also try on window.load as fallback
+    window.addEventListener('load', function() {
+        if (!window.__trajHotfixInstalled && checkDependencies()) {
+            console.log("✅ Зависимости готовы на window.load, установка hotfix...");
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+            installHooks();
+        }
+    });
+
+    // Try immediately in case everything is already loaded
+    tryInstall();
+})();
+</script>
+
+<script>
 window.addEventListener("load", () => {
     // проверяем, есть ли карта
     if (typeof map === "undefined") {
