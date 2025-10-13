@@ -1359,6 +1359,7 @@ let tempArrowLine = null;
 let tempArrowStartLatLng = null;
 let allArrows = L.layerGroup();
 let individualTargets = L.layerGroup();
+let perTargetPreviewLayers = L.layerGroup();
 
 // Текущий стиль карты
 let currentMapStyle = 'dark';
@@ -2069,6 +2070,7 @@ function initMap() {
         // Добавляем слои для отдельных маркеров и стрелок
         map.addLayer(individualTargets);
         map.addLayer(allArrows);
+        map.addLayer(perTargetPreviewLayers);
 
         // Добавляем обработчик клика по карте
         map.on('click', function(e) {
@@ -2972,8 +2974,8 @@ function addTargetToMap(target) {
                     <i class="fas fa-paint-brush"></i> Намалювати траєкторію
                 </button>
                 <button class="action-button predict-btn" 
-                        onclick="event.stopPropagation(); predictTrajectory('${target.id}')">
-                    <i class="fas fa-chart-line"></i> Прогноз
+                        onclick="event.stopPropagation(); toggleTargetTrajectoryPreview('${target.id}')">
+                    <i class="fas fa-chart-line"></i> Показати траєкторію
                 </button>
                 <button class="action-button edit-btn" 
                         onclick="event.stopPropagation(); openEditModal('${target.id}')">
@@ -2997,6 +2999,7 @@ function addTargetToMap(target) {
     });
     marker.on('popupclose', () => {
         popupOpenTargetId = null;
+        clearTargetTrajectoryPreview(target.id);
     });
 
     // Добавляем маркер на карту и сохраняем
@@ -5090,8 +5093,8 @@ function addTargetToMap(target) {
                 <button class="action-button drawing-btn" onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
                     <i class="fas fa-paint-brush"></i> Намалювати траєкторію
                 </button>
-                <button class="action-button predict-btn" onclick="event.stopPropagation(); showPredictedTrajectory('${target.id}')">
-                    <i class="fas fa-chart-line"></i> Предсказать траєкторію
+                <button class="action-button predict-btn" onclick="event.stopPropagation(); toggleTargetTrajectoryPreview('${target.id}')">
+                    <i class="fas fa-chart-line"></i> Показати траєкторію
                 </button>
             </div>
             ` : ''}
@@ -5109,6 +5112,7 @@ function addTargetToMap(target) {
     marker.on('popupclose', function() {
         pausedTargets.delete(target.id);
         hideTargetTrajectory(target.id);
+        clearTargetTrajectoryPreview(target.id);
     });
     
     if (isClusteringEnabled) {
@@ -5156,6 +5160,151 @@ function hideTargetTrajectory(targetId) {
     if (target.tempTrajectory) {
         map.removeLayer(target.tempTrajectory);
         target.tempTrajectory = null;
+    }
+}
+
+// ==================== PER-TARGET TRAJECTORY PREVIEW SYSTEM ====================
+// Helper: get trajectory style settings from the trajectories modal
+function getTrajectoryStyleSettings() {
+    return {
+        color: document.getElementById('trajectoryColor')?.value || '#00cec9',
+        width: parseFloat(document.getElementById('trajectoryWidth')?.value) || 2,
+        style: document.getElementById('trajectoryStyle')?.value || 'solid',
+        opacity: parseFloat(document.getElementById('trajectoryOpacity')?.value) || 0.7
+    };
+}
+
+// Helper: build past trajectory from targetHistory
+function buildPastTrajectory(targetId) {
+    if (!targetHistory[targetId] || targetHistory[targetId].length < 2) {
+        return null;
+    }
+    const points = targetHistory[targetId].map(point => [point.lat, point.lng]);
+    return points;
+}
+
+// Helper: build predicted trajectory (drawn path + straight line)
+function buildPredictedTrajectory(target) {
+    const predictedPoints = [];
+    let startLat = target.latitude;
+    let startLng = target.longitude;
+    let startCourse = target.course;
+    
+    // If there's a drawnTrajectory, use remaining points from currentTrajectoryPoint
+    if (target.drawnTrajectory && target.drawnTrajectory.length > 0) {
+        const currentIdx = (typeof target.currentTrajectoryPoint === 'number' && target.currentTrajectoryPoint >= 0) 
+            ? target.currentTrajectoryPoint 
+            : 0;
+        
+        // Add remaining drawn trajectory points
+        for (let i = currentIdx; i < target.drawnTrajectory.length; i++) {
+            predictedPoints.push(target.drawnTrajectory[i]);
+        }
+        
+        // Get last segment heading if we have at least 2 points
+        if (predictedPoints.length >= 2) {
+            const lastTwo = predictedPoints.slice(-2);
+            startCourse = calculateCourse(
+                { lat: lastTwo[0][0], lng: lastTwo[0][1] },
+                { lat: lastTwo[1][0], lng: lastTwo[1][1] }
+            );
+            startLat = predictedPoints[predictedPoints.length - 1][0];
+            startLng = predictedPoints[predictedPoints.length - 1][1];
+        } else if (predictedPoints.length === 1) {
+            startLat = predictedPoints[0][0];
+            startLng = predictedPoints[0][1];
+        }
+    }
+    
+    // Continue in a straight line using the last segment heading or current course
+    // Predict 10 minutes ahead
+    const predictionTime = 10 * 60; // seconds
+    const timeStep = 30; // seconds
+    const steps = predictionTime / timeStep;
+    
+    let currentLat = startLat;
+    let currentLng = startLng;
+    
+    // If no drawn trajectory points were added, start from current position
+    if (predictedPoints.length === 0) {
+        predictedPoints.push([currentLat, currentLng]);
+    }
+    
+    for (let i = 0; i < steps; i++) {
+        const distance = (target.speed * 1000 / 3600) * timeStep; // meters
+        const bearing = startCourse * Math.PI / 180;
+        
+        const newPos = calculateDestination(currentLat, currentLng, bearing, distance);
+        predictedPoints.push([newPos.lat, newPos.lng]);
+        
+        currentLat = newPos.lat;
+        currentLng = newPos.lng;
+    }
+    
+    return predictedPoints;
+}
+
+// Toggle per-target trajectory preview (past + predicted)
+function toggleTargetTrajectoryPreview(targetId) {
+    const target = targets.find(t => t.id === targetId);
+    if (!target) return;
+    
+    // Check if preview already exists
+    if (target.trajectoryPreviewPast || target.trajectoryPreviewPredicted) {
+        // Remove existing preview
+        if (target.trajectoryPreviewPast) {
+            perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPast);
+            target.trajectoryPreviewPast = null;
+        }
+        if (target.trajectoryPreviewPredicted) {
+            perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPredicted);
+            target.trajectoryPreviewPredicted = null;
+        }
+        return;
+    }
+    
+    // Get style settings
+    const settings = getTrajectoryStyleSettings();
+    
+    // Build and display past trajectory (solid line)
+    const pastPoints = buildPastTrajectory(targetId);
+    if (pastPoints && pastPoints.length >= 2) {
+        target.trajectoryPreviewPast = L.polyline(pastPoints, {
+            color: settings.color,
+            weight: settings.width,
+            opacity: settings.opacity,
+            dashArray: null, // solid line
+            className: 'per-target-preview-past'
+        });
+        perTargetPreviewLayers.addLayer(target.trajectoryPreviewPast);
+    }
+    
+    // Build and display predicted trajectory (dashed line)
+    const predictedPoints = buildPredictedTrajectory(target);
+    if (predictedPoints && predictedPoints.length >= 2) {
+        target.trajectoryPreviewPredicted = L.polyline(predictedPoints, {
+            color: settings.color,
+            weight: settings.width,
+            opacity: settings.opacity,
+            dashArray: '10, 10', // dashed line
+            className: 'per-target-preview-predicted'
+        });
+        perTargetPreviewLayers.addLayer(target.trajectoryPreviewPredicted);
+    }
+}
+
+// Clear per-target preview when popup closes
+function clearTargetTrajectoryPreview(targetId) {
+    const target = targets.find(t => t.id === targetId);
+    if (!target) return;
+    
+    if (target.trajectoryPreviewPast) {
+        perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPast);
+        target.trajectoryPreviewPast = null;
+    }
+    if (target.trajectoryPreviewPredicted) {
+        perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPredicted);
+        target.trajectoryPreviewPredicted = null;
     }
 }
 
@@ -6432,6 +6581,8 @@ window.performSearch = performSearch;
 window.changeMapStyle = changeMapStyle;
 // В конец скрипта добавь:
 window.showPredictedTrajectory = showPredictedTrajectory;
+window.toggleTargetTrajectoryPreview = toggleTargetTrajectoryPreview;
+window.clearTargetTrajectoryPreview = clearTargetTrajectoryPreview;
 // В конец скрипта
 window.toggleTrajectoryView = toggleTrajectoryView;
 window.focusOnTarget = focusOnTarget;
