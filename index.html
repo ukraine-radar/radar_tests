@@ -3716,6 +3716,12 @@ function mergeTargetsFromFirebase(firebaseTargets) {
                 const oldCourse = existingTarget.course;
                 const oldSpeed = existingTarget.speed;
                 
+                // Preserve local drawnTrajectory if remote does not have it
+                if (!('drawnTrajectory' in firebaseTarget) && Array.isArray(existingTarget.drawnTrajectory)) {
+                    firebaseTarget.drawnTrajectory = existingTarget.drawnTrajectory;
+                    firebaseTarget.currentTrajectoryPoint = existingTarget.currentTrajectoryPoint ?? 1;
+                }
+                
                 // Полностью обновляем цель
                 Object.assign(existingTarget, firebaseTarget);
                 
@@ -4108,6 +4114,19 @@ function applyDrawingToTarget(targetId, points) {
             weight: 3,
             opacity: 0.7
         }).addTo(map);
+        
+        // Authoritative Firebase persistence
+        try {
+            if (isOnline && window.firebase && firebase.database) {
+                const payload = {
+                    drawnTrajectory: target.drawnTrajectory,
+                    currentTrajectoryPoint: target.currentTrajectoryPoint,
+                    updatedAt: Date.now(),
+                    trajectoryMeta: { appliedBy: userSessionId, version: Date.now() }
+                };
+                firebase.database().ref('targets/' + target.id).update(payload).catch(()=>{});
+            }
+        } catch (_) {}
         
         alert(`Траектория применена к цели ${target.name}!`);
     }
@@ -4973,6 +4992,20 @@ function createTargetFromDrawing() {
     targetHistory[target.id] = [{ lat: target.latitude, lng: target.longitude, timestamp: Date.now() }];
     
     addTargetToMap(target);
+    
+    // Authoritative Firebase persistence
+    try {
+        if (isOnline && window.firebase && firebase.database) {
+            const payload = {
+                drawnTrajectory: target.drawnTrajectory,
+                currentTrajectoryPoint: target.currentTrajectoryPoint,
+                updatedAt: target.updatedAt,
+                trajectoryMeta: { appliedBy: userSessionId, version: Date.now() }
+            };
+            firebase.database().ref('targets/' + target.id).update(payload).catch(()=>{});
+        }
+    } catch (_) {}
+    
     saveTargets();
     updateStats();
     updateTargetsList();
@@ -5277,8 +5310,11 @@ function toggleTargetTrajectoryPreview(targetId) {
         return;
     }
     
-    // Cancel any pending timeout so preview persists
-    if (__trajPreviewTimeouts.has(targetId)) {
+    // Enforce singleton preview: clear others
+    __clearAllTrajPreviews();
+    
+    // Cancel any pending timeout for this id
+    if (__trajPreviewTimeouts && __trajPreviewTimeouts.has(targetId)) {
       clearTimeout(__trajPreviewTimeouts.get(targetId));
       __trajPreviewTimeouts.delete(targetId);
     }
@@ -5347,6 +5383,31 @@ function __scheduleClearTargetTrajectory(targetId, ms = 15000) {
     __trajPreviewTimeouts.delete(targetId);
   }, ms);
   __trajPreviewTimeouts.set(targetId, tid);
+}
+
+function __clearAllTrajPreviews() {
+  if (!perTargetPreviewLayers) return;
+  // Clear all target preview properties
+  if (Array.isArray(targets)) {
+    targets.forEach(target => {
+      if (target.trajectoryPreviewPast) {
+        if (perTargetPreviewLayers.hasLayer(target.trajectoryPreviewPast)) perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPast);
+        target.trajectoryPreviewPast = null;
+      }
+      if (target.trajectoryPreviewPredicted) {
+        if (perTargetPreviewLayers.hasLayer(target.trajectoryPreviewPredicted)) perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPredicted);
+        target.trajectoryPreviewPredicted = null;
+      }
+    });
+  }
+  // Also clear from Map if it's used
+  if (__trajPreviewByTarget) {
+    for (const [tid, obj] of __trajPreviewByTarget.entries()) {
+      if (obj.past && perTargetPreviewLayers.hasLayer(obj.past)) perTargetPreviewLayers.removeLayer(obj.past);
+      if (obj.pred && perTargetPreviewLayers.hasLayer(obj.pred)) perTargetPreviewLayers.removeLayer(obj.pred);
+      __trajPreviewByTarget.delete(tid);
+    }
+  }
 }
 
 // updateMarkerRotation функция - ПОЛНАЯ ВЕРСИЯ С ПЛАВНЫМИ ПОВОРОТАМИ
@@ -5535,43 +5596,39 @@ function followDrawnTrajectory(target, deltaTime) {
   const speedMs = Math.max(0, (target.speed || 0) / 3.6);
   const stepDistance = speedMs * dtSec;
 
-  // If at or beyond the end: continue straight with last segment heading
+  // End-of-path: continue straight with a cached last heading
   if (currentPointIndex >= target.drawnTrajectory.length) {
-    const n = target.drawnTrajectory.length;
-    const prev = target.drawnTrajectory[n - 2];
-    const last = target.drawnTrajectory[n - 1];
-    const lastBearing = calculateCourse({ lat: prev[0], lng: prev[1] }, { lat: last[0], lng: last[1] });
-    if (stepDistance > 0 && isFinite(lastBearing)) {
-      const dest = calculateDestination(target.latitude, target.longitude, lastBearing, stepDistance);
+    if (typeof target.__afterDrawnHeading !== 'number' || !isFinite(target.__afterDrawnHeading)) {
+      const n = target.drawnTrajectory.length;
+      const prev = target.drawnTrajectory[n - 2];
+      const last = target.drawnTrajectory[n - 1];
+      target.__afterDrawnHeading = calculateCourse({ lat: prev[0], lng: prev[1] }, { lat: last[0], lng: last[1] });
+    }
+    if (stepDistance > 0 && isFinite(target.__afterDrawnHeading)) {
+      const dest = calculateDestination(target.latitude, target.longitude, target.__afterDrawnHeading, stepDistance);
       target.latitude = dest.lat;
       target.longitude = dest.lng;
-      target.course = lastBearing;
+      target.course = target.__afterDrawnHeading;
     }
     return;
   }
 
-  // Normal follow towards the next point
+  // Normal segment following
   const currentPos = [target.latitude, target.longitude];
   const nextPoint = target.drawnTrajectory[currentPointIndex];
   const distanceToNext = calculateDistance(currentPos[0], currentPos[1], nextPoint[0], nextPoint[1]);
 
-  // If close enough to next point, advance index and precompute next segment bearing
   if (distanceToNext < Math.max(50, stepDistance)) {
     target.currentTrajectoryPoint = currentPointIndex + 1;
+    // Clear cached heading when re-entering segments
+    target.__afterDrawnHeading = undefined;
     if (target.currentTrajectoryPoint < target.drawnTrajectory.length) {
       const nextNextPoint = target.drawnTrajectory[target.currentTrajectoryPoint];
-      target.course = calculateCourse(
-        { lat: nextPoint[0], lng: nextPoint[1] },
-        { lat: nextNextPoint[0], lng: nextNextPoint[1] }
-      );
+      target.course = calculateCourse({ lat: nextPoint[0], lng: nextPoint[1] }, { lat: nextNextPoint[0], lng: nextNextPoint[1] });
     }
   }
 
-  const bearing = calculateCourse(
-    { lat: currentPos[0], lng: currentPos[1] },
-    { lat: nextPoint[0], lng: nextPoint[1] }
-  );
-
+  const bearing = calculateCourse({ lat: currentPos[0], lng: currentPos[1] }, { lat: nextPoint[0], lng: nextPoint[1] });
   if (stepDistance > 0 && isFinite(bearing)) {
     const dest = calculateDestination(currentPos[0], currentPos[1], bearing, stepDistance);
     target.latitude = dest.lat;
