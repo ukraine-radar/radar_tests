@@ -4087,6 +4087,7 @@ function applyDrawingToTarget(targetId, points) {
         target.drawnTrajectory = points.map(p => [p.lat, p.lng]);
         target.followingDrawnPath = true;
         target.currentTrajectoryPoint = 1;
+        target.__disengagedFromPath = false; // Reset disengage flag when applying new trajectory
         
         // Snap position to first trajectory point
         target.latitude = target.drawnTrajectory[0][0];
@@ -4340,7 +4341,8 @@ function createTargetFromFreeDrawing() {
         createdBy: userSessionId,
         drawnTrajectory: freeDrawingPoints.map(latlng => [latlng.lat, latlng.lng]),
         currentTrajectoryPoint: 1,
-        followingDrawnPath: true
+        followingDrawnPath: true,
+        __disengagedFromPath: false
     };
     
     targets.push(target);
@@ -4956,7 +4958,8 @@ function createTargetFromDrawing() {
         createdBy: userSessionId,
         drawnTrajectory: drawnTrajectory.map(latlng => [latlng.lat, latlng.lng]),
         currentTrajectoryPoint: 1,
-        followingDrawnPath: true
+        followingDrawnPath: true,
+        __disengagedFromPath: false
     };
     
     targets.push(target);
@@ -5264,8 +5267,29 @@ function moveTargets() {
         // ЕСЛИ У ЦЕЛИ ЕСТЬ НАРИСОВАННАЯ ТРАЕКТОРИЯ - ДВИГАЕМ ПО НЕЙ
         if (target.drawnTrajectory && target.drawnTrajectory.length > 1 && target.followingDrawnPath) {
             followDrawnTrajectory(target, deltaTime);
-        } else {
-            // ОБЫЧНОЕ ДВИЖЕНИЕ ПО КУРСУ
+        }
+        
+        // Check if target has disengaged from path and client-side drive is enabled
+        if (target.__disengagedFromPath && window.__freeFlightClientDrive !== false) {
+            // Auto-detect speed: use target.speed if available, fallback to maxSpeed or default
+            const flightSpeed = target.speed || target.maxSpeed || 150; // km/h
+            const distance = (flightSpeed * 1000 / 3600) * deltaTime;
+            const bearing = target.course * Math.PI / 180;
+            
+            const lat1 = target.latitude * Math.PI / 180;
+            const lon1 = target.longitude * Math.PI / 180;
+            
+            const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distance / 6371000) +
+                                 Math.cos(lat1) * Math.sin(distance / 6371000) * Math.cos(bearing));
+            
+            const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(distance / 6371000) * Math.cos(lat1),
+                                         Math.cos(distance / 6371000) - Math.sin(lat1) * Math.sin(lat2));
+            
+            target.latitude = lat2 * 180 / Math.PI;
+            target.longitude = lon2 * 180 / Math.PI;
+            target.distance += distance;
+        } else if (!target.followingDrawnPath && !target.__disengagedFromPath) {
+            // ОБЫЧНОЕ ДВИЖЕНИЕ ПО КУРСУ (for targets without drawn trajectories)
             const distance = (target.speed * 1000 / 3600) * deltaTime;
             const bearing = target.course * Math.PI / 180;
             
@@ -5316,11 +5340,46 @@ function moveTargets() {
 function followDrawnTrajectory(target, deltaTime) {
     if (!target.drawnTrajectory || target.drawnTrajectory.length < 2 || !target.followingDrawnPath) return;
     
+    // Distance tolerance for detecting trajectory end (meters)
+    const END_TOLERANCE = 50;
+    
     let idx = (typeof target.currentTrajectoryPoint === 'number') ? target.currentTrajectoryPoint : 1;
     const speedMps = (target.speed * 1000) / 3600;
     let lat = target.latitude;
     let lng = target.longitude;
     let remaining = speedMps * deltaTime;
+    
+    // Check distance to last point - disengage if within tolerance
+    const lastPoint = target.drawnTrajectory[target.drawnTrajectory.length - 1];
+    const distToEnd = calculateDistance(lat, lng, lastPoint[0], lastPoint[1]);
+    
+    if (distToEnd <= END_TOLERANCE) {
+        // Reached end of trajectory - disengage and compute straight-flight heading
+        target.followingDrawnPath = false;
+        target.currentTrajectoryPoint = Math.max(idx, target.drawnTrajectory.length - 1);
+        
+        // Compute final course from second-to-last to last point
+        if (target.drawnTrajectory.length >= 2) {
+            const [lat1, lng1] = target.drawnTrajectory[target.drawnTrajectory.length - 2];
+            const [lat2, lng2] = target.drawnTrajectory[target.drawnTrajectory.length - 1];
+            target.course = calculateCourse(
+                { lat: lat1, lng: lng1 },
+                { lat: lat2, lng: lng2 }
+            );
+        } else if (target.course === undefined || target.course === null) {
+            // Fallback: use existing heading, bearing, or last motion vector
+            target.course = target.heading || target.bearing || 0;
+        }
+        
+        // Mark that we've disengaged to prevent re-entry
+        target.__disengagedFromPath = true;
+        return;
+    }
+    
+    // Prevent re-entry into follow mode after disengagement
+    if (target.__disengagedFromPath) {
+        return;
+    }
     
     // While-loop to consume multiple segments in one frame when speed increases
     while (remaining > 0 && idx < target.drawnTrajectory.length) {
@@ -5345,7 +5404,9 @@ function followDrawnTrajectory(target, deltaTime) {
     // Update target position
     target.latitude = lat;
     target.longitude = lng;
-    target.currentTrajectoryPoint = idx;
+    
+    // Ensure currentTrajectoryPoint is non-decreasing (prevent index regression)
+    target.currentTrajectoryPoint = Math.max(idx, target.currentTrajectoryPoint || 0);
     
     // Compute course from current position to next point
     if (idx < target.drawnTrajectory.length) {
@@ -5355,12 +5416,10 @@ function followDrawnTrajectory(target, deltaTime) {
             { lat: nextLat, lng: nextLng }
         );
     } else {
-        // Reached the end - snap to last point and stop following
-        const lastPoint = target.drawnTrajectory[target.drawnTrajectory.length - 1];
-        target.latitude = lastPoint[0];
-        target.longitude = lastPoint[1];
-        target.currentTrajectoryPoint = target.drawnTrajectory.length - 1;
+        // Reached the end - disengage from following
         target.followingDrawnPath = false;
+        target.currentTrajectoryPoint = Math.max(idx, target.drawnTrajectory.length - 1);
+        target.__disengagedFromPath = true;
         
         // Compute final course from second-to-last to last point
         if (target.drawnTrajectory.length >= 2) {
@@ -5370,6 +5429,9 @@ function followDrawnTrajectory(target, deltaTime) {
                 { lat: lat1, lng: lng1 },
                 { lat: lat2, lng: lng2 }
             );
+        } else if (target.course === undefined || target.course === null) {
+            // Fallback: use existing heading, bearing, or last motion vector
+            target.course = target.heading || target.bearing || 0;
         }
     }
     
@@ -6776,6 +6838,7 @@ window.__fdApply = function() {
     target.drawnTrajectory = window.__fdPoints.map(ll => [ll.lat, ll.lng]);
     target.currentTrajectoryPoint = 0;
     target.followingDrawnPath = true;
+    target.__disengagedFromPath = false; // Reset disengage flag when applying new trajectory
     target.latitude = target.drawnTrajectory[0][0];
     target.longitude = target.drawnTrajectory[0][1];
 
@@ -6858,10 +6921,51 @@ if (!window.__fdEventsAttached) {
 window.__moveTargetAlongDrawnTrajectory = function(target, deltaTime) {
     if (!target.drawnTrajectory || target.drawnTrajectory.length < 2 || !target.followingDrawnPath) return;
 
+    // Distance tolerance for detecting trajectory end (meters)
+    const END_TOLERANCE = 50;
+    
     let idx = (typeof target.currentTrajectoryPoint === 'number') ? target.currentTrajectoryPoint : 0;
     const speedMps = (target.speed * 1000) / 3600;
     let [lat, lng] = [target.latitude, target.longitude];
     let remaining = speedMps * deltaTime;
+
+    // Check distance to last point - disengage if within tolerance
+    const lastPoint = target.drawnTrajectory[target.drawnTrajectory.length - 1];
+    const distToEnd = calculateDistance(lat, lng, lastPoint[0], lastPoint[1]);
+    
+    if (distToEnd <= END_TOLERANCE) {
+        // Reached end of trajectory - disengage and compute straight-flight heading
+        target.followingDrawnPath = false;
+        target.currentTrajectoryPoint = Math.max(idx, target.drawnTrajectory.length - 1);
+        
+        // Compute final course from second-to-last to last point
+        const arr = target.drawnTrajectory;
+        if (arr.length >= 2) {
+            const [lat1, lng1] = arr[arr.length-2];
+            const [lat2, lng2] = arr[arr.length-1];
+            const toRad = x => x * Math.PI / 180;
+            const toDeg = x => x * 180 / Math.PI;
+            const dLon = toRad(lng2 - lng1);
+            const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+            const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                      Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+            let brng = Math.atan2(y, x);
+            brng = (toDeg(brng) + 360) % 360;
+            target.course = brng;
+        } else if (target.course === undefined || target.course === null) {
+            // Fallback: use existing heading, bearing, or last motion vector
+            target.course = target.heading || target.bearing || 0;
+        }
+        
+        // Mark that we've disengaged to prevent re-entry
+        target.__disengagedFromPath = true;
+        return;
+    }
+    
+    // Prevent re-entry into follow mode after disengagement
+    if (target.__disengagedFromPath) {
+        return;
+    }
 
     while (remaining > 0 && idx < target.drawnTrajectory.length - 1) {
         const [nextLat, nextLng] = target.drawnTrajectory[idx+1];
@@ -6881,10 +6985,16 @@ window.__moveTargetAlongDrawnTrajectory = function(target, deltaTime) {
 
     target.latitude = lat;
     target.longitude = lng;
-    target.currentTrajectoryPoint = idx;
+    
+    // Ensure currentTrajectoryPoint is non-decreasing (prevent index regression)
+    target.currentTrajectoryPoint = Math.max(idx, target.currentTrajectoryPoint || 0);
 
     // Кінець траєкторії
     if (idx >= target.drawnTrajectory.length - 1 && target.followingDrawnPath) {
+        target.followingDrawnPath = false;
+        target.currentTrajectoryPoint = Math.max(idx, target.drawnTrajectory.length - 1);
+        target.__disengagedFromPath = true;
+        
         const arr = target.drawnTrajectory;
         if (arr.length >= 2) {
             const [lat1, lng1] = arr[arr.length-2];
@@ -6898,8 +7008,10 @@ window.__moveTargetAlongDrawnTrajectory = function(target, deltaTime) {
             let brng = Math.atan2(y, x);
             brng = (toDeg(brng) + 360) % 360;
             target.course = brng;
+        } else if (target.course === undefined || target.course === null) {
+            // Fallback: use existing heading, bearing, or last motion vector
+            target.course = target.heading || target.bearing || 0;
         }
-        target.followingDrawnPath = false;
     }
 };
 </script>
@@ -6964,6 +7076,7 @@ window.addEventListener("load", () => {
         target.drawnTrajectory = window.__fdPoints.map(ll => [ll.lat, ll.lng]);
         target.currentTrajectoryPoint = 0;
         target.followingDrawnPath = true;
+        target.__disengagedFromPath = false; // Reset disengage flag when applying new trajectory
         target.latitude = target.drawnTrajectory[0][0];
         target.longitude = target.drawnTrajectory[0][1];
         if (target.trajectoryLine) map.removeLayer(target.trajectoryLine);
@@ -7108,6 +7221,7 @@ window.addEventListener("load", () => {
         t.drawnTrajectory = traj;
         t.followingDrawnPath = true;
         t.currentTrajectoryPoint = 1;
+        t.__disengagedFromPath = false; // Reset disengage flag when applying new trajectory
         try { if (window.smoothAnimations) delete window.smoothAnimations[t.id]; } catch(_){ }
 
         // Снап позиции к первой точке
