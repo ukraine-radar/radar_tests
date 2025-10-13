@@ -7300,5 +7300,175 @@ window.addEventListener("load", () => {
   }
 })();
 </script>
+<script>
+// ===== Multi-client authoritative free-flight after drawn path end =====
+(function () {
+  const END_TOLERANCE_METERS = 35;      // tolerance for snapping to the last point
+  const WATCH_INTERVAL_MS = 250;        // watch end-of-path period
+  const GUARD_INTERVAL_MS = 500;        // anti-bounce enforcement period
+  const DRIVE_INTERVAL_MS = 0;          // client movement disabled by default (engine/server should drive)
+  const DEFAULT_SPEED_MS = 180;         // ~648 km/h fallback
+
+  // Prefer server/engine to drive. You can enable client drive with window.__freeFlightClientDrive = true
+  if (typeof window.__freeFlightClientDrive === 'undefined') window.__freeFlightClientDrive = false;
+
+  // Try to locate Firebase Database ref to targets
+  function getTargetDbRef(id) {
+    try {
+      const fb = window.firebase || window.Firebase || (window.app && window.app.firebase);
+      if (!fb || !fb.database) return null;
+      const db = fb.database();
+      // Common patterns: '/targets', '/data/targets', '/radar/targets'
+      const basePaths = ['/targets', '/data/targets', '/radar/targets'];
+      for (const base of basePaths) {
+        const ref = db.ref(base + '/' + id);
+        // We can't cheaply check existence here; return first candidate
+        return ref;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  const toRad = d => d * Math.PI / 180; const toDeg = r => r * 180 / Math.PI;
+  function distanceMeters(a, b) {
+    const R = 6371000; const [lat1, lon1] = a, [lat2, lon2] = b;
+    const dLat = toRad(lat2 - lat1); const dLon = toRad(lon2 - lon1);
+    const s1 = Math.sin(dLat / 2), s2 = Math.sin(dLon / 2);
+    const A = s1 * s1 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
+    return 2 * R * Math.asin(Math.sqrt(A));
+  }
+  function bearingDeg(a, b) {
+    const [lat1, lon1] = [toRad(a[0]), toRad(a[1])]; const [lat2, lon2] = [toRad(b[0]), toRad(b[1])];
+    const dLon = lon2 - lon1; const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  }
+  function destinationPoint(lat, lon, bearing, dist) {
+    const R = 6371000, δ = dist / R, θ = toRad(bearing), φ1 = toRad(lat), λ1 = toRad(lon);
+    const sinφ1 = Math.sin(φ1), cosφ1 = Math.cos(φ1), sinδ = Math.sin(δ), cosδ = Math.cos(δ);
+    const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * Math.cos(θ);
+    const φ2 = Math.asin(sinφ2); const y = Math.sin(θ) * sinδ * cosφ1; const x = cosδ - sinφ1 * sinφ2;
+    const λ2 = λ1 + Math.atan2(y, x);
+    return [toDeg(φ2), ((toDeg(λ2) + 540) % 360) - 180];
+  }
+
+  function monotonicIdx(t) {
+    if (typeof t.currentTrajectoryPoint !== 'number') return;
+    if (typeof t.__lastTrajIdx === 'number' && t.currentTrajectoryPoint < t.__lastTrajIdx) {
+      t.currentTrajectoryPoint = t.__lastTrajIdx;
+    }
+    t.__lastTrajIdx = t.currentTrajectoryPoint;
+  }
+
+  function pickSpeedMs(t) {
+    const candidates = [t.speedMs, t.speed_ms, t.speed_mps, t.velocityMs, t.velocity_ms, t.v_ms,
+      (typeof t.speed === 'number' && t.speed <= 1000 ? t.speed : null),
+      (typeof t.speedKmh === 'number' ? t.speedKmh / 3.6 : null), (typeof t.speed_kmh === 'number' ? t.speed_kmh / 3.6 : null)
+    ].filter(v => typeof v === 'number' && isFinite(v) && v > 0);
+    if (candidates.length) return candidates[0];
+    if (Array.isArray(t.drawnTrajectory) && t.drawnTrajectory.length >= 2) {
+      const n = t.drawnTrajectory.length; const d = distanceMeters(t.drawnTrajectory[n - 2], t.drawnTrajectory[n - 1]);
+      if (isFinite(d) && d > 1) return Math.min(d, 300);
+    }
+    return DEFAULT_SPEED_MS;
+  }
+
+  function pickHeadingDeg(t) {
+    if (Array.isArray(t.drawnTrajectory) && t.drawnTrajectory.length >= 2) {
+      const n = t.drawnTrajectory.length; return bearingDeg(t.drawnTrajectory[n - 2], t.drawnTrajectory[n - 1]);
+    }
+    const h = t.heading ?? t.course ?? t.bearing ?? t.azimuth;
+    if (typeof h === 'number' && isFinite(h)) return (h % 360 + 360) % 360;
+    if (typeof t.__prevLat === 'number' && typeof t.__prevLon === 'number') return bearingDeg([t.__prevLat, t.__prevLon], [t.latitude, t.longitude]);
+    return 0;
+  }
+
+  function writeAuthoritativeFree(t, opts) {
+    const ref = getTargetDbRef(t.id);
+    if (!ref) return;
+    const payload = {
+      followingDrawnPath: false,
+      mode: 'free',
+      drawnPathCompleted: true,
+      currentTrajectoryPoint: Math.max(0, (t.drawnTrajectory?.length || 1) - 1),
+      ff: { headingDeg: opts.heading, speedMs: opts.speed, startedAt: Date.now() }
+    };
+    try {
+      // Best-effort update; if transactions are needed, could be switched later
+      ref.update(payload).catch(() => {});
+    } catch (_) {}
+  }
+
+  function launchFreeFlight(t) {
+    try {
+      if (t.__freeFlight) return; // already in free-flight
+      const lastIdx = Math.max(0, (t.drawnTrajectory?.length || 1) - 1);
+      const last = t.drawnTrajectory?.[lastIdx];
+      if (last) { t.latitude = last[0]; t.longitude = last[1]; }
+      t.currentTrajectoryPoint = lastIdx;
+      t.followingDrawnPath = false;
+      if (window.smoothAnimations && t.id in window.smoothAnimations) delete window.smoothAnimations[t.id];
+      const heading = pickHeadingDeg(t); const speedMs = pickSpeedMs(t);
+      t.__freeFlight = { headingDeg: heading, speedMs, lastUpdate: performance.now() };
+      t.heading = heading; t.course = heading; t.bearing = heading;
+      // Write authoritative state so other clients won't re-enable following
+      writeAuthoritativeFree(t, { heading, speed: speedMs });
+      console.log(`✈️ Target ${t.name || t.id}: FREE-FLIGHT engaged (multi-client safe)`);
+    } catch (e) { console.warn('launchFreeFlight error', e); }
+  }
+
+  function watchEndAndDisengage() {
+    if (!Array.isArray(window.targets)) return;
+    for (const t of window.targets) {
+      if (!t) continue; t.__prevLat = t.latitude; t.__prevLon = t.longitude; monotonicIdx(t);
+      if (t.__freeFlight) continue; // already disengaged
+      if (t.followingDrawnPath && Array.isArray(t.drawnTrajectory) && t.drawnTrajectory.length) {
+        const lastIdx = t.drawnTrajectory.length - 1; const last = t.drawnTrajectory[lastIdx];
+        const dist = distanceMeters([t.latitude, t.longitude], last);
+        if ((t.currentTrajectoryPoint ?? 0) >= lastIdx || dist <= END_TOLERANCE_METERS) launchFreeFlight(t);
+      }
+    }
+  }
+
+  function antiBounceGuard() {
+    // If any remote client flips followingDrawnPath back to true while freeFlight is active, flip it back off and write to DB
+    if (!Array.isArray(window.targets)) return;
+    for (const t of window.targets) {
+      if (!t || !t.__freeFlight) continue;
+      if (t.followingDrawnPath === true) {
+        t.followingDrawnPath = false;
+        // Push authoritative state again to settle conflicts across clients
+        writeAuthoritativeFree(t, { heading: t.__freeFlight.headingDeg, speed: t.__freeFlight.speedMs });
+        console.warn('Anti-bounce: reasserted free-flight for target', t.id);
+      }
+      // Keep index at the end
+      const lastIdx = Math.max(0, (t.drawnTrajectory?.length || 1) - 1);
+      if (typeof t.currentTrajectoryPoint === 'number' && t.currentTrajectoryPoint < lastIdx) t.currentTrajectoryPoint = lastIdx;
+    }
+  }
+
+  function freeFlightDriveTick() {
+    if (!window.__freeFlightClientDrive) return;
+    if (!Array.isArray(window.targets)) return; const now = performance.now();
+    for (const t of window.targets) {
+      if (!t || !t.__freeFlight) continue; const ff = t.__freeFlight;
+      const dtSec = Math.max(0, (now - (ff.lastUpdate || now)) / 1000); if (dtSec <= 0) { ff.lastUpdate = now; continue; }
+      const dist = ff.speedMs * dtSec; const [nLat, nLon] = destinationPoint(t.latitude, t.longitude, ff.headingDeg, dist);
+      t.latitude = nLat; t.longitude = nLon; ff.lastUpdate = now;
+      t.heading = ff.headingDeg; t.course = ff.headingDeg; t.bearing = ff.headingDeg;
+    }
+  }
+
+  setInterval(watchEndAndDisengage, WATCH_INTERVAL_MS);
+  setInterval(antiBounceGuard, GUARD_INTERVAL_MS);
+  if (window.__freeFlightClientDrive) setInterval(freeFlightDriveTick, Math.max(100, DRIVE_INTERVAL_MS));
+
+  // Expose manual trigger for debugging
+  window.__engageFreeFlight = (id) => {
+    if (!Array.isArray(window.targets)) return; const t = window.targets.find(x => x && (x.id === id || String(x.id) === String(id)));
+    if (t) launchFreeFlight(t);
+  };
+})();
+</script>
 </body>
 </html>
