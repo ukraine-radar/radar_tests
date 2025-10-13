@@ -6911,6 +6911,45 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     install();
   }
+
+  // Периодически переустанавливаем патчи (каждые 5 секунд) на случай перезаписи другими скриптами
+  setInterval(() => {
+    try {
+      log('Переустановка патчей...');
+      
+      // Проверяем и переустанавливаем stopDrawingMode
+      if (window.stopDrawingMode !== hardStopDrawingMode && 
+          window.stopDrawingMode.toString().indexOf('hardStopDrawingMode') === -1) {
+        window.__origStopDrawingMode = window.stopDrawingMode;
+        window.stopDrawingMode = function () {
+          try { hardStopDrawingMode(); } catch(e){ console.error(e); }
+        };
+        log('stopDrawingMode переустановлен');
+      }
+
+      // Проверяем и переустанавливаем applyDrawingToTarget
+      if (window.applyDrawingToTarget !== patchedApplyDrawingToTarget &&
+          window.applyDrawingToTarget.toString().indexOf('patchedApplyDrawingToTarget') === -1) {
+        window.__origApplyDrawingToTarget = window.applyDrawingToTarget;
+        window.applyDrawingToTarget = patchedApplyDrawingToTarget;
+        log('applyDrawingToTarget переустановлен');
+      }
+
+      // Проверяем и переустанавливаем hideAllDrawnTrajectories
+      if (typeof window.hideAllDrawnTrajectories !== 'function') {
+        window.hideAllDrawnTrajectories = hideAllDrawnTrajectories;
+        log('hideAllDrawnTrajectories переустановлен');
+      }
+
+      // Проверяем наличие кнопки, если её нет - добавляем
+      if (!document.getElementById('hideTrajBtn')) {
+        insertHideTrajButton();
+        log('Кнопка "Скрыть траектории" переустановлена');
+      }
+    } catch (e) {
+      console.error('[UX-PATCH] Ошибка периодической переустановки', e);
+    }
+  }, 5000);
 })();
 </script>
 
