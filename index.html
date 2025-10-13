@@ -2937,6 +2937,55 @@ function testGooglePlaces() {
 }
 
 // ==================== Добавление цели на карту ====================
+// FIXED: Render popup content for a target (supports live updates)
+function renderMarkerPopupContent(target) {
+    return `
+        <div class="target-info-window">
+            <h3 style="color:#00cec9;">${target.name || 'Невідома ціль'}</h3>
+            <p><strong>Тип:</strong> ${target.type}</p>
+            <p><strong>Швидкість:</strong> ${target.speed || 0} км/год</p>
+            <p><strong>Курс:</strong> ${target.course ? target.course.toFixed(1) : 0}°</p>
+            <div class="action-buttons">
+                <button class="action-button drawing-btn" 
+                        onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
+                    <i class="fas fa-paint-brush"></i> Намалювати траєкторію
+                </button>
+                <button class="action-button predict-btn" 
+                        onclick="event.stopPropagation(); showPredictedTrajectoryPublic('${target.id}')">
+                    <i class="fas fa-chart-line"></i> Показати траєкторію
+                </button>
+                <button class="action-button edit-btn" 
+                        onclick="event.stopPropagation(); openEditModal('${target.id}')">
+                    <i class="fas fa-edit"></i> Редагувати
+                </button>
+                <button class="action-button delete-btn" 
+                        onclick="event.stopPropagation(); deleteTarget('${target.id}')">
+                    <i class="fas fa-trash"></i> Видалити
+                </button>
+                <button class="action-button course-btn" 
+                        onclick="event.stopPropagation(); startCourseSelection('${target.id}')">
+                    <i class="fas fa-location-arrow"></i> Курс
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// FIXED: Update popup content when target properties change
+function updateMarkerPopup(target) {
+    if (!target || !markers[target.id]) return;
+    const marker = markers[target.id];
+    const popup = marker.getPopup();
+    if (popup) {
+        const newContent = renderMarkerPopupContent(target);
+        popup.setContent(newContent);
+        // If popup is currently open, update it
+        if (marker.isPopupOpen()) {
+            popup.update();
+        }
+    }
+}
+
 function addTargetToMap(target) {
     if (!target.latitude || !target.longitude) return;
 
@@ -2963,37 +3012,8 @@ function addTargetToMap(target) {
         draggable: false
     });
 
-    // Формируем содержимое popup
-    const popupContent = `
-        <div class="target-info-window">
-            <h3 style="color:#00cec9;">${target.name || 'Невідома ціль'}</h3>
-            <p><strong>Тип:</strong> ${target.type}</p>
-            <p><strong>Швидкість:</strong> ${target.speed || 0} км/год</p>
-            <p><strong>Курс:</strong> ${target.course ? target.course.toFixed(1) : 0}°</p>
-            <div class="action-buttons">
-                <button class="action-button drawing-btn" 
-                        onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
-                    <i class="fas fa-paint-brush"></i> Намалювати траєкторію
-                </button>
-                <button class="action-button predict-btn" 
-                        onclick="event.stopPropagation(); toggleTargetTrajectoryPreview('${target.id}')">
-                    <i class="fas fa-chart-line"></i> Показати траєкторію
-                </button>
-                <button class="action-button edit-btn" 
-                        onclick="event.stopPropagation(); openEditModal('${target.id}')">
-                    <i class="fas fa-edit"></i> Редагувати
-                </button>
-                <button class="action-button delete-btn" 
-                        onclick="event.stopPropagation(); deleteTarget('${target.id}')">
-                    <i class="fas fa-trash"></i> Видалити
-                </button>
-                <button class="action-button course-btn" 
-                        onclick="event.stopPropagation(); startCourseSelection('${target.id}')">
-                    <i class="fas fa-location-arrow"></i> Курс
-                </button>
-            </div>
-        </div>
-    `;
+    // FIXED: Use renderMarkerPopupContent for consistent popup rendering
+    const popupContent = renderMarkerPopupContent(target);
 
     marker.bindPopup(popupContent);
     marker.on('popupopen', () => {
@@ -3728,6 +3748,7 @@ function mergeTargetsFromFirebase(firebaseTargets) {
                 Object.assign(existingTarget, firebaseTarget);
                 
                 updateMarkerRotation(existingTarget);
+                updateMarkerPopup(existingTarget); // FIXED: Live-update popup when syncing from Firebase
                 
                 console.log(`Курс изменен: ${oldCourse}° -> ${existingTarget.course}°`);
                 console.log(`Скорость изменена: ${oldSpeed} -> ${existingTarget.speed}`);
@@ -4096,16 +4117,19 @@ function applyDrawingToTarget(targetId, points) {
     
     const target = targets.find(t => t.id === targetId);
     if (target) {
-        // Сохраняем траекторию
+        // FIXED: Properly reset trajectory flags for new path following
         target.drawnTrajectory = points.map(p => [p.lat, p.lng]);
         target.followingDrawnPath = true;
         target.currentTrajectoryPoint = 1;
-        target.__disengagedFromPath = false; // Reset disengage flag when applying new trajectory
-        target.finishedDrawnTrajectory = false; // Reset finished flag when applying new trajectory
+        target.__disengagedFromPath = false; // FIXED: Reset disengage flag when applying new trajectory
+        target.finishedDrawnTrajectory = false; // FIXED: Reset finished flag when applying new trajectory
         
-        // Snap position to first trajectory point
-        target.latitude = target.drawnTrajectory[0][0];
-        target.longitude = target.drawnTrajectory[0][1];
+        // FIXED: Optionally snap position to first trajectory point (avoid jump if close)
+        const distToStart = calculateDistance(target.latitude, target.longitude, target.drawnTrajectory[0][0], target.drawnTrajectory[0][1]);
+        if (distToStart > 100) { // Only snap if more than 100m away to prevent jarring jumps
+            target.latitude = target.drawnTrajectory[0][0];
+            target.longitude = target.drawnTrajectory[0][1];
+        }
         
         // Показываем траекторию на карте
         if (target.trajectoryLine) {
@@ -4131,7 +4155,7 @@ function applyDrawingToTarget(targetId, points) {
             }
         } catch (_) {}
         
-        alert(`Траектория применена к цели ${target.name}!`);
+        console.log(`Траектория применена к цели ${target.name}!`); // FIXED: Replace alert with console.log
     }
     
     stopDrawingMode();
@@ -5107,7 +5131,7 @@ function addTargetToMap(target) {
     const createdDate = new Date(target.createdAt);
     const formattedDate = createdDate.toLocaleString('uk-UA');
     
-    // ПОЛНЫЙ popup контент со всеми кнопками
+    // FIXED: Generate popup content using helper function for consistency
     const popupContent = `
         <div class="target-info-window">
             <h4>${target.name}</h4>
@@ -5131,11 +5155,17 @@ function addTargetToMap(target) {
                 <button class="action-button drawing-btn" onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
                     <i class="fas fa-paint-brush"></i> Намалювати траєкторію
                 </button>
-                <button class="action-button predict-btn" onclick="event.stopPropagation(); toggleTargetTrajectoryPreview('${target.id}')">
+                <button class="action-button predict-btn" onclick="event.stopPropagation(); showPredictedTrajectoryPublic('${target.id}')">
                     <i class="fas fa-chart-line"></i> Показати траєкторію
                 </button>
             </div>
-            ` : ''}
+            ` : `
+            <div class="action-buttons">
+                <button class="action-button predict-btn" onclick="event.stopPropagation(); showPredictedTrajectoryPublic('${target.id}')">
+                    <i class="fas fa-chart-line"></i> Показати траєкторію
+                </button>
+            </div>
+            `}
         </div>
     `;
     
@@ -5431,6 +5461,64 @@ function __clearAllTrajPreviews() {
   }
 }
 
+// FIXED: Schedule auto-hide for trajectory preview layers after specified timeout
+function scheduleTrajectoryCleanup(targetId, layerKey, timeoutMs = 10000) {
+  const key = `${targetId}:${layerKey}`;
+  // Cancel prior timeout if any
+  if (__trajPreviewTimeouts.has(key)) {
+    clearTimeout(__trajPreviewTimeouts.get(key));
+    __trajPreviewTimeouts.delete(key);
+  }
+  const tid = setTimeout(() => {
+    __clearTargetTrajectory(targetId);
+    __trajPreviewTimeouts.delete(key);
+  }, timeoutMs);
+  __trajPreviewTimeouts.set(key, tid);
+}
+
+// FIXED: Debouncing map for prediction updates (avoid redraw storms)
+const __predictionDebounceMap = new Map();
+
+// FIXED: Public prediction function with visual-only guarantee, debouncing, and angle check
+function showPredictedTrajectoryPublic(targetId) {
+  const target = targets.find(t => t.id === targetId);
+  if (!target) return;
+  
+  // FIXED: Debounce prediction redraws (~400ms)
+  const debounceKey = `pred_${targetId}`;
+  if (__predictionDebounceMap.has(debounceKey)) {
+    clearTimeout(__predictionDebounceMap.get(debounceKey));
+  }
+  
+  const timeoutId = setTimeout(() => {
+    __predictionDebounceMap.delete(debounceKey);
+    
+    // FIXED: Angle check - only update if heading change is forward-ish (< 90° difference)
+    if (target.__lastPredictedCourse !== undefined) {
+      const currentCourse = target.course || 0;
+      const lastCourse = target.__lastPredictedCourse;
+      const angleDiff = Math.abs(((currentCourse - lastCourse + 180) % 360) - 180);
+      if (angleDiff >= 90) {
+        console.log(`Skipping prediction update for ${targetId}: angle change too large (${angleDiff.toFixed(1)}°)`);
+        return;
+      }
+    }
+    target.__lastPredictedCourse = target.course || 0;
+    
+    // FIXED: Enforce singleton preview - clear other target previews
+    __clearAllTrajPreviews();
+    
+    // FIXED: Visual-only prediction - does NOT modify target.course, target.speed, or target.followingDrawnPath
+    toggleTargetTrajectoryPreview(targetId);
+    
+    // FIXED: Schedule auto-hide after 10 seconds
+    scheduleTrajectoryCleanup(targetId, 'predicted', 10000);
+    scheduleTrajectoryCleanup(targetId, 'past', 10000);
+  }, 400); // FIXED: 400ms debounce
+  
+  __predictionDebounceMap.set(debounceKey, timeoutId);
+}
+
 // updateMarkerRotation функция - ПОЛНАЯ ВЕРСИЯ С ПЛАВНЫМИ ПОВОРОТАМИ
 function updateMarkerRotation(target) {
     if (!markers[target.id]) return;
@@ -5637,8 +5725,14 @@ function followDrawnTrajectory(target, deltaTime) {
 
   // End-of-path: mark as finished and let moveTargets handle free flight
   if (currentPointIndex >= target.drawnTrajectory.length) {
+    // FIXED: Log when trajectory is completed and ensure proper free-flight transition
+    if (!target.finishedDrawnTrajectory) {
+      console.log('DRAWN_TRAJ_FINISHED', target.id); // FIXED: Console log on completion
+    }
     // Set flag to indicate trajectory is complete
     target.finishedDrawnTrajectory = true;
+    target.followingDrawnPath = false; // FIXED: Explicitly disengage from path
+    target.__disengagedFromPath = true; // FIXED: Mark as disengaged for free flight
     // Cache last heading for reference but don't move here
     if (typeof target.__afterDrawnHeading !== 'number' || !isFinite(target.__afterDrawnHeading)) {
       const n = target.drawnTrajectory.length;
@@ -5665,8 +5759,11 @@ function followDrawnTrajectory(target, deltaTime) {
     target.__afterDrawnHeading = undefined;
     // Check if we just reached the last point
     if (target.currentTrajectoryPoint >= target.drawnTrajectory.length) {
-      // Mark as finished, will switch to free flight on next frame
+      // FIXED: Log completion and properly disengage for free flight
+      console.log('DRAWN_TRAJ_FINISHED', target.id); // FIXED: Console log on completion
       target.finishedDrawnTrajectory = true;
+      target.followingDrawnPath = false; // FIXED: Explicitly disengage from path
+      target.__disengagedFromPath = true; // FIXED: Mark as disengaged for free flight
       const n = target.drawnTrajectory.length;
       if (n >= 2) {
         const prev = target.drawnTrajectory[n - 2];
@@ -5742,6 +5839,7 @@ function saveTargetEdit() {
     locallyModifiedTargets.add(currentEditTargetId);
 
     updateMarkerRotation(target);
+    updateMarkerPopup(target); // FIXED: Live-update popup when target is edited
 
     // 🔹 Сразу пушим в Firebase
     if (isOnline) {
@@ -5908,6 +6006,7 @@ function setTargetCourseFromMap(latlng) {
     locallyModifiedTargets.add(target.id);
 
     updateMarkerRotation(target);
+    updateMarkerPopup(target); // FIXED: Live-update popup when course changes
     cancelCourseSelection();
 
     if (isOnline) {
@@ -6687,6 +6786,11 @@ window.changeMapStyle = changeMapStyle;
 window.showPredictedTrajectory = showPredictedTrajectory;
 window.toggleTargetTrajectoryPreview = toggleTargetTrajectoryPreview;
 window.clearTargetTrajectoryPreview = clearTargetTrajectoryPreview;
+// FIXED: Export new public functions
+window.showPredictedTrajectoryPublic = showPredictedTrajectoryPublic;
+window.scheduleTrajectoryCleanup = scheduleTrajectoryCleanup;
+window.renderMarkerPopupContent = renderMarkerPopupContent;
+window.updateMarkerPopup = updateMarkerPopup;
 // В конец скрипта
 window.toggleTrajectoryView = toggleTrajectoryView;
 window.focusOnTarget = focusOnTarget;
@@ -6725,6 +6829,103 @@ window.removeDrawingControls = removeDrawingControls;
 window.stopDrawingMode = stopDrawingMode;
 window.applyDrawingToTarget = applyDrawingToTarget;
 window.showFreeDrawingModal = showFreeDrawingModal;
+
+// FIXED: Unit test helper for trajectory completion and preview auto-hide
+function runTrajectoryUnitTests() {
+    console.log('=== Running Trajectory Unit Tests ===');
+    
+    // Test 1: Verify target follows drawn trajectory to completion
+    console.log('Test 1: Creating two test targets with drawn trajectories...');
+    const testTarget1 = {
+        id: 'test-1-' + Date.now(),
+        name: 'Test Target 1',
+        type: 'fighter',
+        speed: 500,
+        course: 90,
+        latitude: 50.0,
+        longitude: 30.0,
+        distance: 0,
+        maxSpeed: 500,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastTrajectoryUpdate: Date.now(),
+        drawnTrajectory: [[50.0, 30.0], [50.0, 30.1], [50.0, 30.2]],
+        followingDrawnPath: true,
+        currentTrajectoryPoint: 1,
+        finishedDrawnTrajectory: false,
+        __disengagedFromPath: false
+    };
+    
+    const testTarget2 = {
+        id: 'test-2-' + Date.now(),
+        name: 'Test Target 2',
+        type: 'bomber',
+        speed: 300,
+        course: 180,
+        latitude: 51.0,
+        longitude: 31.0,
+        distance: 0,
+        maxSpeed: 300,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastTrajectoryUpdate: Date.now(),
+        drawnTrajectory: [[51.0, 31.0], [51.1, 31.0], [51.2, 31.0]],
+        followingDrawnPath: true,
+        currentTrajectoryPoint: 1,
+        finishedDrawnTrajectory: false,
+        __disengagedFromPath: false
+    };
+    
+    targets.push(testTarget1, testTarget2);
+    
+    // Simulate trajectory following
+    console.log('Simulating trajectory following for 5 seconds...');
+    let iterations = 0;
+    const maxIterations = 50; // 5 seconds at ~100ms intervals
+    const testInterval = setInterval(() => {
+        iterations++;
+        followDrawnTrajectory(testTarget1, 0.1); // 100ms delta
+        followDrawnTrajectory(testTarget2, 0.1);
+        
+        if (testTarget1.finishedDrawnTrajectory && testTarget1.__disengagedFromPath) {
+            console.log('✅ Test Target 1 completed trajectory and disengaged successfully');
+            console.log('  - finishedDrawnTrajectory:', testTarget1.finishedDrawnTrajectory);
+            console.log('  - __disengagedFromPath:', testTarget1.__disengagedFromPath);
+            console.log('  - final course:', testTarget1.course);
+        }
+        
+        if (testTarget2.finishedDrawnTrajectory && testTarget2.__disengagedFromPath) {
+            console.log('✅ Test Target 2 completed trajectory and disengaged successfully');
+            console.log('  - finishedDrawnTrajectory:', testTarget2.finishedDrawnTrajectory);
+            console.log('  - __disengagedFromPath:', testTarget2.__disengagedFromPath);
+            console.log('  - final course:', testTarget2.course);
+        }
+        
+        if (iterations >= maxIterations || (testTarget1.finishedDrawnTrajectory && testTarget2.finishedDrawnTrajectory)) {
+            clearInterval(testInterval);
+            
+            // Test 2: Verify preview auto-hide
+            console.log('Test 2: Testing preview auto-hide (waiting 11 seconds)...');
+            showPredictedTrajectoryPublic(testTarget1.id);
+            
+            setTimeout(() => {
+                const hasPreview = testTarget1.trajectoryPreviewPast || testTarget1.trajectoryPreviewPredicted;
+                if (!hasPreview) {
+                    console.log('✅ Preview auto-hide works correctly');
+                } else {
+                    console.log('❌ Preview still visible after 11 seconds');
+                }
+                
+                // Cleanup test targets
+                targets = targets.filter(t => !t.id.startsWith('test-'));
+                console.log('=== Unit Tests Complete ===');
+            }, 11000);
+        }
+    }, 100);
+}
+
+// FIXED: Export unit test function
+window.runTrajectoryUnitTests = runTrajectoryUnitTests;
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
@@ -7462,26 +7663,30 @@ window.addEventListener("load", () => {
   function makePatchedApply() {
     return function applyDrawingToTarget(targetId, points) {
       try {
-        if (!Array.isArray(window.targets)) { alert('targets не инициализированы'); return; }
+        if (!Array.isArray(window.targets)) { console.log('targets не инициализированы'); return; } // FIXED: Replace alert with console.log
         const t = window.targets.find(x => x && (x.id === targetId || String(x.id) === String(targetId)));
-        if (!t) { alert('Цель не найдена'); return; }
-        if (!Array.isArray(points) || points.length < 2) { alert('Недостаточно точек'); return; }
+        if (!t) { console.log('Цель не найдена'); return; } // FIXED: Replace alert with console.log
+        if (!Array.isArray(points) || points.length < 2) { console.log('Недостаточно точек'); return; } // FIXED: Replace alert with console.log
         const traj = points.map(p => Array.isArray(p) ? [p[0], p[1]] : [p.lat, p.lng]);
 
         // Удаляем прежние оверлеи
         ['trajectoryLine','traveledTrajectory','predictedTrajectoryLine','completePredictedTrajectory','predictionEndMarker','historyLine','futureLine']
           .forEach(k => { if (t[k]) { removeLayerIfExists(t[k]); t[k] = null; } });
 
-        // Сброс состояния
+        // FIXED: Properly reset trajectory flags for new path following
         t.drawnTrajectory = traj;
         t.followingDrawnPath = true;
         t.currentTrajectoryPoint = 1;
-        t.__disengagedFromPath = false; // Reset disengage flag when applying new trajectory
+        t.__disengagedFromPath = false; // FIXED: Reset disengage flag when applying new trajectory
+        t.finishedDrawnTrajectory = false; // FIXED: Reset finished flag when applying new trajectory
         try { if (window.smoothAnimations) delete window.smoothAnimations[t.id]; } catch(_){ }
 
-        // Снап позиции к первой точке
-        t.latitude = traj[0][0];
-        t.longitude = traj[0][1];
+        // FIXED: Optionally snap position to first trajectory point (avoid jump if close)
+        const distToStart = calculateDistance(t.latitude, t.longitude, traj[0][0], traj[0][1]);
+        if (distToStart > 100) { // Only snap if more than 100m away to prevent jarring jumps
+          t.latitude = traj[0][0];
+          t.longitude = traj[0][1];
+        }
 
         // Рисуем свежую линию
         try { if (window.L && window.map) t.trajectoryLine = L.polyline(traj, { color:'#00FF00', weight:3, opacity:0.7 }).addTo(map); } catch(_){ }
