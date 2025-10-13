@@ -5103,15 +5103,12 @@ function addTargetToMap(target) {
     
     marker.bindPopup(popupContent);
     
-    // Показываем траекторию при открытии popup
     marker.on('popupopen', function() {
         pausedTargets.add(target.id);
-        showTargetTrajectory(target.id);
     });
     
     marker.on('popupclose', function() {
         pausedTargets.delete(target.id);
-        hideTargetTrajectory(target.id);
         clearTargetTrajectoryPreview(target.id);
     });
     
