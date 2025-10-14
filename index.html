@@ -505,6 +505,7 @@
         }
 
         /* UI UPDATE: Futuristic buttons with ripple effect */
+        /* UI FIX: Enhanced buttons with icon support and effects */
         .btn {
             background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(0, 188, 212, 0.1));
             border: 2px solid rgba(0, 188, 212, 0.4);
@@ -519,6 +520,15 @@
             font-size: 14px;
             position: relative;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        /* UI FIX: Button icons with glow */
+        .btn i {
+            filter: drop-shadow(0 0 4px currentColor);
         }
 
         .btn::before {
@@ -539,14 +549,18 @@
             height: 300px;
         }
 
+        /* UI FIX: Enhanced hover with pulsating glow */
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: var(--glow) rgba(0, 188, 212, 0.5);
             border-color: var(--accent);
+            animation: pulsate 1.5s ease-in-out infinite;
         }
 
+        /* UI FIX: Touch/active feedback */
         .btn:active {
             transform: translateY(0);
+            box-shadow: var(--glow) rgba(0, 188, 212, 0.7);
         }
 
         .btn-danger {
@@ -3921,14 +3935,15 @@ function addTargetToMap(target) {
     const formattedDate = createdDate.toLocaleString('uk-UA');
     
     // ОБНОВЛЕННЫЙ popup контент с кнопкой рисования
+    // UI FIX: Enhanced popup with icons in parameter labels
     const popupContent = `
         <div class="target-info-window">
-            <h4>${target.name}</h4>
-            <p><strong>Тип:</strong> ${targetTypes[target.type]?.name || target.type}</p>
-            <p><strong>Швидкість:</strong> ${target.speed} км/год</p>
-            <p><strong>Курс:</strong> ${target.course}°</p>
-            <p><strong>Відстань:</strong> ${(target.distance / 1000).toFixed(1)} км</p>
-            <p><strong>Додано:</strong> ${formattedDate}</p>
+            <h4><i class="fas fa-crosshairs"></i> ${target.name}</h4>
+            <p><strong><i class="fas fa-tag"></i> Тип:</strong> ${targetTypes[target.type]?.name || target.type}</p>
+            <p><strong><i class="fas fa-tachometer-alt"></i> Швидкість:</strong> ${target.speed} км/год</p>
+            <p><strong><i class="fas fa-compass"></i> Курс:</strong> ${target.course}°</p>
+            <p><strong><i class="fas fa-ruler"></i> Відстань:</strong> ${(target.distance / 1000).toFixed(1)} км</p>
+            <p><strong><i class="fas fa-clock"></i> Додано:</strong> ${formattedDate}</p>
             ${isAdmin ? `
             <div class="action-buttons">
                 <button class="action-button edit-btn" onclick="event.stopPropagation(); editTarget('${target.id}')">
@@ -5365,14 +5380,15 @@ function addTargetToMap(target) {
     const createdDate = new Date(target.createdAt);
     const formattedDate = createdDate.toLocaleString('uk-UA');
     
+    // UI FIX: Enhanced popup with icons in parameter labels
     const popupContent = `
         <div class="target-info-window">
-            <h4>${target.name}</h4>
-            <p><strong>Тип:</strong> ${targetTypes[target.type]?.name || target.type}</p>
-            <p><strong>Швидкість:</strong> ${target.speed} км/год</p>
-            <p><strong>Курс:</strong> ${target.course}°</p>
-            <p><strong>Відстань:</strong> ${(target.distance / 1000).toFixed(1)} км</p>
-            <p><strong>Додано:</strong> ${formattedDate}</p>
+            <h4><i class="fas fa-crosshairs"></i> ${target.name}</h4>
+            <p><strong><i class="fas fa-tag"></i> Тип:</strong> ${targetTypes[target.type]?.name || target.type}</p>
+            <p><strong><i class="fas fa-tachometer-alt"></i> Швидкість:</strong> ${target.speed} км/год</p>
+            <p><strong><i class="fas fa-compass"></i> Курс:</strong> ${target.course}°</p>
+            <p><strong><i class="fas fa-ruler"></i> Відстань:</strong> ${(target.distance / 1000).toFixed(1)} км</p>
+            <p><strong><i class="fas fa-clock"></i> Додано:</strong> ${formattedDate}</p>
             ${isAdmin ? `
             <div class="action-buttons">
                 <button class="action-button edit-btn" onclick="event.stopPropagation(); editTarget('${target.id}')">
