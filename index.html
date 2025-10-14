@@ -83,6 +83,7 @@
         }
 
         /* UI UPDATE: Military/Technical style header with glass effect */
+        /* UI FIX: Added z-index: 2000 to ensure header and search results stay above map */
         .header {
             background: var(--panel);
             backdrop-filter: blur(20px);
@@ -95,6 +96,7 @@
             border-bottom: 2px solid var(--accent);
             flex-shrink: 0;
             position: relative;
+            z-index: 2000;
         }
 
         .header::before {
@@ -185,6 +187,7 @@
         }
 
         /* UI UPDATE: Glass-style search results */
+        /* UI FIX: Increased z-index to 2500 to ensure search results appear above Leaflet map */
         .search-results {
             position: absolute;
             top: 100%;
@@ -198,7 +201,7 @@
             max-height: 200px;
             overflow-y: auto;
             display: none;
-            z-index: 1000;
+            z-index: 2500;
             box-shadow: var(--shadow);
         }
 
@@ -284,6 +287,7 @@
             flex-direction: column;
         }
 
+        /* UI FIX: Map container z-index set to 1 to stay below header and search results */
         #map {
             flex: 1;
             z-index: 1;
@@ -330,6 +334,7 @@
         }
 
         /* UI UPDATE: Glass-style map switcher */
+        /* UI FIX: z-index: 1000 is sufficient for map switcher (below header and search) */
         .map-switcher {
             position: absolute;
             top: 10px;
