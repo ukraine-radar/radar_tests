@@ -3000,50 +3000,7 @@ function updateMarkerPopup(target) {
     }
 }
 
-function addTargetToMap(target) {
-    if (!target.latitude || !target.longitude) return;
-
-    // Удаляем старый маркер, если он есть
-    if (markers[target.id]) {
-        map.removeLayer(markers[target.id]);
-    }
-
-    // Определяем иконку
-    const iconUrl = getTargetIconUrl(target.type);
-    const icon = L.divIcon({
-        className: 'png-icon-marker',
-        html: `<div class="rotatable-png-icon" 
-                    style="background-image:url('${iconUrl}'); 
-                           transform:rotate(${target.course || 0}deg);">
-               </div>`,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20]
-    });
-
-    // Создаём маркер
-    const marker = L.marker([target.latitude, target.longitude], {
-        icon: icon,
-        draggable: false
-    });
-
-    // FIXED: Use renderMarkerPopupContent for consistent popup rendering
-    const popupContent = renderMarkerPopupContent(target);
-
-    marker.bindPopup(popupContent);
-    marker.on('popupopen', () => {
-        popupOpenTargetId = target.id;
-        pausedTargets.add(target.id);
-    });
-    marker.on('popupclose', () => {
-        popupOpenTargetId = null;
-        pausedTargets.delete(target.id);
-        __scheduleClearTargetTrajectory(target.id, 15000);
-    });
-
-    // Добавляем маркер на карту и сохраняем
-    marker.addTo(isClusteringEnabled ? markerCluster : map);
-    markers[target.id] = marker;
-}
+// FIXED: Removed duplicate addTargetToMap function - using full version below at line 5135
 
 // Упрощенная функция получения иконки
 function getIconForType(type, course = 0) {
@@ -5150,54 +5107,20 @@ function addTargetToMap(target) {
     const icon = getIconForType(target.type, target.course);
     const marker = L.marker([target.latitude, target.longitude], { icon: icon });
     
-    const createdDate = new Date(target.createdAt);
-    const formattedDate = createdDate.toLocaleString('uk-UA');
-    
-    // FIXED: Generate popup content using helper function for consistency
-    const popupContent = `
-        <div class="target-info-window">
-            <h4>${target.name}</h4>
-            <p><strong>Тип:</strong> ${targetTypes[target.type]?.name || target.type}</p>
-            <p><strong>Швидкість:</strong> ${target.speed} км/год</p>
-            <p><strong>Курс:</strong> ${target.course}°</p>
-            <p><strong>Відстань:</strong> ${(target.distance / 1000).toFixed(1)} км</p>
-            <p><strong>Додано:</strong> ${formattedDate}</p>
-            ${target.drawnTrajectory ? '<p><strong>🚀 Слідує по траєкторії</strong></p>' : ''}
-            ${isAdmin ? `
-            <div class="action-buttons">
-                <button class="action-button edit-btn" onclick="event.stopPropagation(); editTarget('${target.id}')">
-                    <i class="fas fa-edit"></i> Редагувати
-                </button>
-                <button class="action-button delete-btn" onclick="event.stopPropagation(); deleteTarget('${target.id}')">
-                    <i class="fas fa-trash"></i> Видалити
-                </button>
-                <button class="action-button course-btn" onclick="event.stopPropagation(); showCourseSelectionModal('${target.id}')">
-                    <i class="fas fa-route"></i> Курс
-                </button>
-                <button class="action-button drawing-btn" onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
-                    <i class="fas fa-paint-brush"></i> Намалювати траєкторію
-                </button>
-                <button class="action-button predict-btn" onclick="event.stopPropagation(); showPredictedTrajectoryPublic('${target.id}')">
-                    <i class="fas fa-chart-line"></i> Показати траєкторію
-                </button>
-            </div>
-            ` : `
-            <div class="action-buttons">
-                <button class="action-button predict-btn" onclick="event.stopPropagation(); showPredictedTrajectoryPublic('${target.id}')">
-                    <i class="fas fa-chart-line"></i> Показати траєкторію
-                </button>
-            </div>
-            `}
-        </div>
-    `;
+    // FIXED: Use renderMarkerPopupContent helper function for live updates
+    const popupContent = renderMarkerPopupContent(target);
     
     marker.bindPopup(popupContent);
     
     marker.on('popupopen', function() {
+        // FIXED: Track which popup is open for live updates
+        popupOpenTargetId = target.id;
         pausedTargets.add(target.id);
     });
     
     marker.on('popupclose', function() {
+        // FIXED: Clear popup tracking on close
+        popupOpenTargetId = null;
         pausedTargets.delete(target.id);
         __scheduleClearTargetTrajectory(target.id, 15000);
     });
@@ -5763,6 +5686,17 @@ function moveTargets() {
         
         target.lastTrajectoryUpdate = now;
     });
+    
+    // FIXED: Update popup content for currently open popup (live updates for distance, speed, etc.)
+    if (popupOpenTargetId) {
+        const openTarget = targets.find(t => t.id === popupOpenTargetId);
+        if (openTarget && markers[popupOpenTargetId]) {
+            const marker = markers[popupOpenTargetId];
+            if (marker.isPopupOpen()) {
+                updateMarkerPopup(openTarget);
+            }
+        }
+    }
     
     document.getElementById('lastUpdate').textContent = 
         `Оновлено: ${new Date().toLocaleTimeString()}`;
