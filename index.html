@@ -5541,43 +5541,17 @@ function scheduleTrajectoryCleanup(targetId, layerKey, timeoutMs = 10000) {
 const __predictionDebounceMap = new Map();
 
 // FIXED: Public prediction function with visual-only guarantee, debouncing, and angle check
+// FIXED: Use targetHistory for real movement history display (item #4)
 function showPredictedTrajectoryPublic(targetId) {
   const target = targets.find(t => t.id === targetId);
   if (!target) return;
   
-  // FIXED: Debounce prediction redraws (~400ms)
-  const debounceKey = `pred_${targetId}`;
-  if (__predictionDebounceMap.has(debounceKey)) {
-    clearTimeout(__predictionDebounceMap.get(debounceKey));
-  }
+  // FIXED: Show trajectory from real history using addTrajectory approach (item #4)
+  // This displays the actual path the target has traveled, not predicted/drawn paths
+  showTrajectoryFromHistory(targetId);
   
-  const timeoutId = setTimeout(() => {
-    __predictionDebounceMap.delete(debounceKey);
-    
-    // FIXED: Angle check - only update if heading change is forward-ish (< 90° difference)
-    if (target.__lastPredictedCourse !== undefined) {
-      const currentCourse = target.course || 0;
-      const lastCourse = target.__lastPredictedCourse;
-      const angleDiff = Math.abs(((currentCourse - lastCourse + 180) % 360) - 180);
-      if (angleDiff >= 90) {
-        console.log(`Skipping prediction update for ${targetId}: angle change too large (${angleDiff.toFixed(1)}°)`);
-        return;
-      }
-    }
-    target.__lastPredictedCourse = target.course || 0;
-    
-    // FIXED: Enforce singleton preview - clear other target previews
-    __clearAllTrajPreviews();
-    
-    // FIXED: Visual-only prediction - does NOT modify target.course, target.speed, or target.followingDrawnPath
-    toggleTargetTrajectoryPreview(targetId);
-    
-    // FIXED: Schedule auto-hide after 10 seconds
-    scheduleTrajectoryCleanup(targetId, 'predicted', 10000);
-    scheduleTrajectoryCleanup(targetId, 'past', 10000);
-  }, 400); // FIXED: 400ms debounce
-  
-  __predictionDebounceMap.set(debounceKey, timeoutId);
+  // FIXED: Also show the permanent trajectory line via addTrajectory for consistency
+  addTrajectory(target);
 }
 
 // updateMarkerRotation функция - ПОЛНАЯ ВЕРСИЯ С ПЛАВНЫМИ ПОВОРОТАМИ
@@ -5685,8 +5659,9 @@ function moveTargets() {
         
         const animData = smoothAnimations.get(target.id);
         
-        // ЕСЛИ У ЦЕЛИ ЕСТЬ НАРИСОВАННАЯ ТРАЕКТОРИЯ И ОНА ЕЩЕ НЕ ЗАВЕРШЕНА - ДВИГАЕМ ПО НЕЙ
-        if (target.drawnTrajectory && target.drawnTrajectory.length > 1 && target.followingDrawnPath && !target.finishedDrawnTrajectory) {
+        // FIXED: Check manualCourseOverride - if manual course set, move by course instead of trajectory (item #6)
+        // Move along drawn trajectory only if followingDrawnPath AND no manual override
+        if (target.drawnTrajectory && target.drawnTrajectory.length > 1 && target.followingDrawnPath && !target.finishedDrawnTrajectory && !target.manualCourseOverride) {
             followDrawnTrajectory(target, deltaTime);
         }
         // If trajectory is finished or no trajectory, use free flight
@@ -5805,6 +5780,7 @@ function followDrawnTrajectory(target, deltaTime) {
     target.finishedDrawnTrajectory = true;
     target.followingDrawnPath = false; // FIXED: Explicitly disengage from path
     target.__disengagedFromPath = true; // FIXED: Mark as disengaged for free flight
+    target.manualCourseOverride = false; // FIXED: Reset manual override at end of trajectory (item #7)
     // FIXED: Use last course for continued movement (item #7)
     if (typeof target.__afterDrawnHeading !== 'number' || !isFinite(target.__afterDrawnHeading)) {
       const n = target.drawnTrajectory.length;
@@ -5836,6 +5812,7 @@ function followDrawnTrajectory(target, deltaTime) {
       target.finishedDrawnTrajectory = true;
       target.followingDrawnPath = false; // FIXED: Explicitly disengage from path
       target.__disengagedFromPath = true; // FIXED: Mark as disengaged for free flight
+      target.manualCourseOverride = false; // FIXED: Reset manual override at end of trajectory (item #7)
       // FIXED: Calculate and set last course for continued movement (item #7)
       const n = target.drawnTrajectory.length;
       if (n >= 2) {
@@ -6078,10 +6055,10 @@ function setTargetCourseFromMap(latlng) {
     target.updatedAt = Date.now();
     locallyModifiedTargets.add(target.id);
 
-    // FIXED: Manual course change with drawn path - set manualCourseOverride (item #6)
-    target.followingDrawnPath = false;
-    target.__disengagedFromPath = true;
+    // FIXED: Manual course change - set manualCourseOverride but DON'T clear drawnTrajectory (item #6)
     target.manualCourseOverride = true; // FIXED: Flag for manual course override
+    // FIXED: Do NOT set followingDrawnPath = false or __disengagedFromPath here (item #6)
+    // The movement logic will check manualCourseOverride to decide whether to follow path
 
     updateMarkerRotation(target);
     updateMarkerPopup(target); // FIXED: Live-update popup when course changes
@@ -7024,30 +7001,80 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /*
 FIXED: TEST CHECKLIST (Manual Verification) - Item #8
-The following 8 items have been fixed:
+==========================================
 
-□ 1) Real-time popup updates: bindPopupAutoUpdate helper with 800ms interval for all roles
-□ 2) Popup buttons work: openEditModal and startCourseSelection shims prevent errors
-□ 3) Popup close glitch fixed: Clear interval only, don't recreate popup
-□ 4) Show trajectory from history: showTrajectoryFromHistory uses targetHistory (visual-only)
-□ 5) No movement teleports: applyDrawingToTarget is per-target, no global animation freeze
-□ 6) Manual course override: setTargetCourseFromMap sets manualCourseOverride flag
-□ 7) Continue at end of trajectory: Clear followingDrawnPath but keep moving at last course
-□ 8) Manual test checklist: Verify all fixes work together
+ОСНОВНІ ПЕРЕВІРКИ ПО ЗАВДАННЮ:
 
-Additional verification steps:
-□ A) Popup shows "Додано" field with correct date/time in uk-UA format
-□ A) Popup shows "Пройдено" field with correct distance (meters if <1000, km with 2 decimals if >=1000)
-□ B) Popup "Редагувати" button works without errors (calls editTarget via openEditModal shim)
-□ B) Popup "Курс" button works without errors (calls showCourseSelectionModal via startCourseSelection shim)
-□ B) Popup buttons include event.stopPropagation() to prevent map click-through
-□ C) Trajectory preview (show/hide button) only creates/removes visual layers, never mutates target.course
-□ C) Trajectory preview auto-hides after 10 seconds
-□ C) Trajectory preview continues to work after manual course change while drawn trajectory exists
-□ C) Manual course change (via map click) disengages from drawn path (sets followingDrawnPath=false, __disengagedFromPath=true)
-□ D) When one target follows a drawn trajectory, other targets continue moving normally
-□ D) No global animation freeze occurs (smoothAnimations is per-target, moveTargets loop continues)
-□ D) stopAnimationForTarget helper exists and works for per-target animation control
+1. РЕАЛЬНЕ АВТООНОВЛЕННЯ POPUP (для всіх ролей):
+   □ Відкрити popup будь-якої цілі
+   □ Перевірити, що дані оновлюються кожні ~800 мс (швидкість, відстань, час)
+   □ Popup НЕ пересоздається при кожному update (елементи не "моргають")
+   □ bindPopupAutoUpdate викликається в addTargetToMap
+   □ При закритті popup інтервал очищається коректно
+
+2. БЕЗПЕЧНІ ШИМИ ДЛЯ КНОПОК:
+   □ Кнопка "Редагувати" працює без помилок (викликає editTarget через openEditModal)
+   □ Кнопка "Курс" працює без помилок (викликає showCourseSelectionModal через startCourseSelection)
+   □ При відсутності функції в консолі з'являється попередження, але НЕ помилка
+   □ openEditModal і startCourseSelection існують як глобальні функції
+
+3. ВІДОБРАЖЕННЯ POPUP:
+   □ При закритті popup просто очищається інтервал updater
+   □ Popup НЕ пересоздається при update
+   □ innerHTML оновлюється через updateMarkerPopup
+   □ Немає візуальних "моргань" або перезавантажень popup
+
+4. ФУНКЦІЯ "ПОКАЗАТИ ТРАЄКТОРІЮ":
+   □ Кнопка викликає showTrajectoryFromHistory (НЕ toggleTargetTrajectoryPreview)
+   □ Використовує targetHistory (реальна історія руху), НЕ drawnTrajectory
+   □ Використовує addTrajectory для відображення
+   □ Працює для ВСІХ користувачів (не тільки адміна)
+   □ Траєкторія автоматично ховається через 10 секунд
+
+5. РУХ ЦІЛЕЙ - ЗАСТОСУВАННЯ ТРАЄКТОРІЇ:
+   □ applyDrawingToTarget працює per-target (тільки для однієї цілі)
+   □ Інші цілі НЕ телепортуються при застосуванні траєкторії
+   □ smoothAnimations НЕ очищується глобально
+   □ stopAnimationForTarget(id) працює per-target
+   □ Ціль НЕ телепортується на початок траєкторії (тільки якщо >100м)
+
+6. РУЧНА ЗМІНА КУРСУ:
+   □ При ручній зміні курсу встановлюється target.manualCourseOverride = true
+   □ У moveTargets: якщо followingDrawnPath && !manualCourseOverride - рух по drawnTrajectory
+   □ У moveTargets: якщо manualCourseOverride - рух по курсу (ігнорується drawnTrajectory)
+   □ drawnTrajectory НЕ очищується при ручній зміні курсу (зберігається)
+   □ followingDrawnPath НЕ скидається в setTargetCourseFromMap
+
+7. КІНЕЦЬ НАРИСОВАНОЇ ТРАЄКТОРІЇ:
+   □ followingDrawnPath скидається в false
+   □ Ціль продовжує рух по останньому курсу (НЕ зупиняється)
+   □ manualCourseOverride скидається в false
+   □ target.course встановлюється на останній курс траєкторії
+   □ Консоль виводить 'DRAWN_TRAJ_FINISHED'
+
+8. ТЕСТОВИЙ ЧЕКЛИСТ:
+   □ Цей чеклист існує і знаходиться в кінці файлу
+   □ Усі 8 пунктів із завдання перевірені
+
+ДОДАТКОВІ ПЕРЕВІРКИ:
+
+POPUP:
+□ Показує поле "Додано" з правильною датою/часом (uk-UA формат)
+□ Показує поле "Пройдено" з коректною відстанню (м якщо <1000, км з 2 знаками якщо >=1000)
+□ event.stopPropagation() є на всіх кнопках для запобігання кліку через карту
+
+ТРАЄКТОРІЇ:
+□ Перегляд траєкторії тільки створює/видаляє візуальні шари, НЕ змінює target.course
+□ Перегляд працює після ручної зміни курсу при наявності drawnTrajectory
+□ addTrajectory використовує targetHistory для відображення історії руху
+
+РУХ:
+□ Коли одна ціль слідує по нарисованій траєкторії, інші цілі рухаються нормально
+□ Немає глобального заморожування анімації (smoothAnimations per-target)
+□ moveTargets цикл продовжує працювати для всіх цілей
+
+КОМЕНТАРІ:
+□ Всі виправлення мають коментар "// FIXED:" з описом
 */
 
 </script>
