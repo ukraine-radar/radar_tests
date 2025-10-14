@@ -4221,6 +4221,11 @@ function addTargetToMap(target) {
     markers[target.id] = marker;
     
     addTrajectory(target);
+    
+    // UI UPDATE: Show notification for new target
+    if (window.UI && window.UI.notifications) {
+        window.UI.notifications.success(`Нова ціль додана: ${target.name}`, 3000);
+    }
 }
 
 // Функции показа/скрытия траектории
@@ -4617,6 +4622,7 @@ const __predictionDebounceMap = new Map();
 
 // FIXED: Public prediction function with visual-only guarantee, debouncing, and angle check
 // FIXED: Use targetHistory for real movement history display (item #4)
+// UI UPDATE: Enhanced with notification
 function showPredictedTrajectoryPublic(targetId) {
   const target = targets.find(t => t.id === targetId);
   if (!target) return;
@@ -4627,6 +4633,11 @@ function showPredictedTrajectoryPublic(targetId) {
   
   // FIXED: Also show the permanent trajectory line via addTrajectory for consistency
   addTrajectory(target);
+  
+  // UI UPDATE: Show notification
+  if (window.UI && window.UI.notifications) {
+      window.UI.notifications.info(`Траєкторія оновлена: ${target.name}`, 2500);
+  }
 }
 
 // updateMarkerRotation функция - ПОЛНАЯ ВЕРСИЯ С ПЛАВНЫМИ ПОВОРОТАМИ
@@ -4993,8 +5004,13 @@ function saveTargetEdit() {
 }
 
 // deleteTarget функция - ПОЛНАЯ ВЕРСИЯ С ОЧИСТКОЙ АНИМАЦИИ
+// UI UPDATE: Enhanced with notification
 function deleteTarget(targetId) {
     if (!isAdmin) return;
+    
+    // UI UPDATE: Get target name before deletion
+    const target = targets.find(t => t.id === targetId);
+    const targetName = target ? target.name : 'Ціль';
     
     if (!confirm('Ви впевнені, що хочете видалити цю ціль?')) return;
 
@@ -5038,6 +5054,11 @@ function deleteTarget(targetId) {
     saveTargets();
     updateStats();
     updateTargetsList();
+    
+    // UI UPDATE: Show notification
+    if (window.UI && window.UI.notifications) {
+        window.UI.notifications.warning(`Ціль видалено: ${targetName}`, 3000);
+    }
 }
 
 // clearAllTargets функция - ОБНОВИТЬ для сохранения истории
