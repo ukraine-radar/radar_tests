@@ -2939,12 +2939,26 @@ function testGooglePlaces() {
 // ==================== Добавление цели на карту ====================
 // FIXED: Render popup content for a target (supports live updates)
 function renderMarkerPopupContent(target) {
+    // FIXED: added createdAt and distance to popup
+    const createdAt = target.createdAt || target.addedAt;
+    const createdAtDisplay = createdAt ? new Date(createdAt).toLocaleString('uk-UA') : 'Невідомо';
+    
+    const distance = target.distance || 0;
+    let distanceDisplay;
+    if (distance >= 1000) {
+        distanceDisplay = (distance / 1000).toFixed(2) + ' км';
+    } else {
+        distanceDisplay = Math.round(distance) + ' м';
+    }
+    
     return `
         <div class="target-info-window">
             <h3 style="color:#00cec9;">${target.name || 'Невідома ціль'}</h3>
             <p><strong>Тип:</strong> ${target.type}</p>
             <p><strong>Швидкість:</strong> ${target.speed || 0} км/год</p>
             <p><strong>Курс:</strong> ${target.course ? target.course.toFixed(1) : 0}°</p>
+            <p><strong>Додано:</strong> ${createdAtDisplay}</p>
+            <p><strong>Пройдено:</strong> ${distanceDisplay}</p>
             <div class="action-buttons">
                 <button class="action-button drawing-btn" 
                         onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
@@ -3571,6 +3585,14 @@ function startAnimationLoop() {
         animationFrameId = requestAnimationFrame(animationLoop);
     }
     animationFrameId = requestAnimationFrame(animationLoop);
+}
+
+// FIXED: stop animation only for specific target
+function stopAnimationForTarget(targetId) {
+    if (!smoothAnimations) return;
+    const anim = smoothAnimations.get(targetId);
+    if (anim && anim.raf) cancelAnimationFrame(anim.raf);
+    smoothAnimations.delete(targetId);
 }
 
 // Авто-сохранение каждые 5 секунд
@@ -5380,6 +5402,10 @@ function toggleTargetTrajectoryPreview(targetId) {
         });
         perTargetPreviewLayers.addLayer(target.trajectoryPreviewPredicted);
     }
+    
+    // FIXED: trajectory preview auto-hide after 10 seconds
+    scheduleTrajectoryCleanup(targetId, 'past', 10000);
+    scheduleTrajectoryCleanup(targetId, 'predicted', 10000);
 }
 
 // Clear per-target preview when popup closes
@@ -5434,6 +5460,39 @@ function __scheduleClearTargetTrajectory(targetId, ms = 15000) {
     __trajPreviewTimeouts.delete(targetId);
   }, ms);
   __trajPreviewTimeouts.set(targetId, tid);
+}
+
+// FIXED: trajectory preview auto-hide helper
+function scheduleTrajectoryCleanup(targetId, layerKey, ms) {
+  const timeoutKey = `${targetId}:${layerKey}`;
+  
+  // Cancel existing timeout for this specific layer
+  if (__trajPreviewTimeouts.has(timeoutKey)) {
+    clearTimeout(__trajPreviewTimeouts.get(timeoutKey));
+    __trajPreviewTimeouts.delete(timeoutKey);
+  }
+  
+  const tid = setTimeout(() => {
+    const target = targets.find(t => t.id === targetId);
+    if (!target) return;
+    
+    // Remove the specific layer
+    if (layerKey === 'past' && target.trajectoryPreviewPast) {
+      if (perTargetPreviewLayers && perTargetPreviewLayers.hasLayer(target.trajectoryPreviewPast)) {
+        perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPast);
+      }
+      target.trajectoryPreviewPast = null;
+    } else if (layerKey === 'predicted' && target.trajectoryPreviewPredicted) {
+      if (perTargetPreviewLayers && perTargetPreviewLayers.hasLayer(target.trajectoryPreviewPredicted)) {
+        perTargetPreviewLayers.removeLayer(target.trajectoryPreviewPredicted);
+      }
+      target.trajectoryPreviewPredicted = null;
+    }
+    
+    __trajPreviewTimeouts.delete(timeoutKey);
+  }, ms);
+  
+  __trajPreviewTimeouts.set(timeoutKey, tid);
 }
 
 function __clearAllTrajPreviews() {
@@ -6004,6 +6063,10 @@ function setTargetCourseFromMap(latlng) {
     target.course = course;
     target.updatedAt = Date.now();
     locallyModifiedTargets.add(target.id);
+
+    // FIXED: manual course change disengages drawn path
+    target.followingDrawnPath = false;
+    target.__disengagedFromPath = true;
 
     updateMarkerRotation(target);
     updateMarkerPopup(target); // FIXED: Live-update popup when course changes
@@ -6927,12 +6990,38 @@ function runTrajectoryUnitTests() {
 // FIXED: Export unit test function
 window.runTrajectoryUnitTests = runTrajectoryUnitTests;
 
+// FIXED: shim wrappers for popup buttons
+window.openEditModal = window.openEditModal || function(id){
+  if (typeof editTarget === 'function') return editTarget(id);
+  console.warn('editTarget is missing', id);
+};
+window.startCourseSelection = window.startCourseSelection || function(id){
+  if (typeof showCourseSelectionModal === 'function') return showCourseSelectionModal(id);
+  console.warn('course selector missing', id);
+};
+
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     initApp();
 });
 
 // fjfj
+
+/*
+TEST CHECKLIST (Manual Verification):
+□ A) Popup shows "Додано" field with correct date/time in uk-UA format
+□ A) Popup shows "Пройдено" field with correct distance (meters if <1000, km with 2 decimals if >=1000)
+□ B) Popup "Редагувати" button works without errors (calls editTarget via openEditModal shim)
+□ B) Popup "Курс" button works without errors (calls showCourseSelectionModal via startCourseSelection shim)
+□ B) Popup buttons include event.stopPropagation() to prevent map click-through
+□ C) Trajectory preview (show/hide button) only creates/removes visual layers, never mutates target.course
+□ C) Trajectory preview auto-hides after 10 seconds
+□ C) Trajectory preview continues to work after manual course change while drawn trajectory exists
+□ C) Manual course change (via map click) disengages from drawn path (sets followingDrawnPath=false, __disengagedFromPath=true)
+□ D) When one target follows a drawn trajectory, other targets continue moving normally
+□ D) No global animation freeze occurs (smoothAnimations is per-target, moveTargets loop continues)
+□ D) stopAnimationForTarget helper exists and works for per-target animation control
+*/
 
 </script>
 
