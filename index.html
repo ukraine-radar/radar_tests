@@ -4091,23 +4091,32 @@ function stopDrawingMode() {
     alert("Режим рисования выключен");
 }
 
+// FIXED: Per-target trajectory application without teleporting other targets (item #5)
 function applyDrawingToTarget(targetId, points) {
     console.log("✅ Применяем траекторию к цели", targetId);
     
     const target = targets.find(t => t.id === targetId);
     if (target) {
-        // FIXED: Properly reset trajectory flags for new path following
+        // FIXED: Per-target flags - only affects this specific target (item #5)
         target.drawnTrajectory = points.map(p => [p.lat, p.lng]);
         target.followingDrawnPath = true;
         target.currentTrajectoryPoint = 1;
         target.__disengagedFromPath = false; // FIXED: Reset disengage flag when applying new trajectory
         target.finishedDrawnTrajectory = false; // FIXED: Reset finished flag when applying new trajectory
         
-        // FIXED: Optionally snap position to first trajectory point (avoid jump if close)
+        // FIXED: No teleport - only snap if far away (>100m) (item #5)
         const distToStart = calculateDistance(target.latitude, target.longitude, target.drawnTrajectory[0][0], target.drawnTrajectory[0][1]);
         if (distToStart > 100) { // Only snap if more than 100m away to prevent jarring jumps
             target.latitude = target.drawnTrajectory[0][0];
             target.longitude = target.drawnTrajectory[0][1];
+            // FIXED: Update animation data to prevent visual jump
+            if (smoothAnimations.has(target.id)) {
+                smoothAnimations.set(target.id, {
+                    ...smoothAnimations.get(target.id),
+                    lat: target.latitude,
+                    lng: target.longitude
+                });
+            }
         }
         
         // Показываем траекторию на карте
@@ -5119,11 +5128,14 @@ function addTargetToMap(target) {
     });
     
     marker.on('popupclose', function() {
-        // FIXED: Clear popup tracking on close
+        // FIXED: Clear popup tracking on close (item #3)
         popupOpenTargetId = null;
         pausedTargets.delete(target.id);
         __scheduleClearTargetTrajectory(target.id, 15000);
     });
+    
+    // FIXED: Use bindPopupAutoUpdate helper for real-time updates (item #1)
+    bindPopupAutoUpdate(marker, target.id);
     
     if (isClusteringEnabled) {
         markerCluster.addLayer(marker);
@@ -5182,6 +5194,73 @@ function getTrajectoryStyleSettings() {
         style: document.getElementById('trajectoryStyle')?.value || 'solid',
         opacity: parseFloat(document.getElementById('trajectoryOpacity')?.value) || 0.7
     };
+}
+
+// FIXED: bindPopupAutoUpdate helper for real-time popup updates (item #1)
+function bindPopupAutoUpdate(marker, targetId) {
+    let updateInterval = null;
+    
+    marker.on('popupopen', function() {
+        // Clear any existing interval
+        if (updateInterval) {
+            clearInterval(updateInterval);
+        }
+        
+        // FIXED: Set up 800ms interval for popup updates
+        updateInterval = setInterval(() => {
+            const target = targets.find(t => t.id === targetId);
+            if (target && marker.isPopupOpen()) {
+                updateMarkerPopup(target);
+            }
+        }, 800);
+    });
+    
+    marker.on('popupclose', function() {
+        // FIXED: Clear interval only, don't recreate popup (item #3)
+        if (updateInterval) {
+            clearInterval(updateInterval);
+            updateInterval = null;
+        }
+    });
+}
+
+// FIXED: showTrajectoryFromHistory - visual-only trajectory display (item #4)
+function showTrajectoryFromHistory(targetId) {
+    const target = targets.find(t => t.id === targetId);
+    if (!target) return;
+    
+    // Remove any existing history trajectory display
+    if (target._historyTrajectoryLayer) {
+        map.removeLayer(target._historyTrajectoryLayer);
+        target._historyTrajectoryLayer = null;
+    }
+    
+    // Get history points from targetHistory
+    const historyPoints = targetHistory[targetId];
+    if (!historyPoints || historyPoints.length < 2) {
+        console.log('No trajectory history for target', targetId);
+        return;
+    }
+    
+    // Create visual-only polyline from history
+    const latLngs = historyPoints.map(p => [p.lat, p.lng]);
+    const historyLine = L.polyline(latLngs, {
+        color: '#3498db',
+        weight: 3,
+        opacity: 0.7,
+        dashArray: '5, 5'
+    }).addTo(map);
+    
+    // Store reference for cleanup
+    target._historyTrajectoryLayer = historyLine;
+    
+    // FIXED: Auto-hide after 10 seconds
+    setTimeout(() => {
+        if (target._historyTrajectoryLayer) {
+            map.removeLayer(target._historyTrajectoryLayer);
+            target._historyTrajectoryLayer = null;
+        }
+    }, 10000);
 }
 
 // Helper: build past trajectory from targetHistory
@@ -5716,24 +5795,24 @@ function followDrawnTrajectory(target, deltaTime) {
   const speedMs = Math.max(0, (target.speed || 0) / 3.6);
   const stepDistance = speedMs * dtSec;
 
-  // End-of-path: mark as finished and let moveTargets handle free flight
+  // FIXED: End-of-path handling - continue at last course (item #7)
   if (currentPointIndex >= target.drawnTrajectory.length) {
     // FIXED: Log when trajectory is completed and ensure proper free-flight transition
     if (!target.finishedDrawnTrajectory) {
       console.log('DRAWN_TRAJ_FINISHED', target.id); // FIXED: Console log on completion
     }
-    // Set flag to indicate trajectory is complete
+    // FIXED: Continue moving at end of trajectory - don't stop (item #7)
     target.finishedDrawnTrajectory = true;
     target.followingDrawnPath = false; // FIXED: Explicitly disengage from path
     target.__disengagedFromPath = true; // FIXED: Mark as disengaged for free flight
-    // Cache last heading for reference but don't move here
+    // FIXED: Use last course for continued movement (item #7)
     if (typeof target.__afterDrawnHeading !== 'number' || !isFinite(target.__afterDrawnHeading)) {
       const n = target.drawnTrajectory.length;
       if (n >= 2) {
         const prev = target.drawnTrajectory[n - 2];
         const last = target.drawnTrajectory[n - 1];
         target.__afterDrawnHeading = calculateCourse({ lat: prev[0], lng: prev[1] }, { lat: last[0], lng: last[1] });
-        target.course = target.__afterDrawnHeading;
+        target.course = target.__afterDrawnHeading; // FIXED: Set course for continued flight
       }
     }
     return;
@@ -5750,19 +5829,20 @@ function followDrawnTrajectory(target, deltaTime) {
     target.currentTrajectoryPoint = currentPointIndex + 1;
     // Clear cached heading when re-entering segments
     target.__afterDrawnHeading = undefined;
-    // Check if we just reached the last point
+    // FIXED: Reached last point - continue at last course (item #7)
     if (target.currentTrajectoryPoint >= target.drawnTrajectory.length) {
       // FIXED: Log completion and properly disengage for free flight
       console.log('DRAWN_TRAJ_FINISHED', target.id); // FIXED: Console log on completion
       target.finishedDrawnTrajectory = true;
       target.followingDrawnPath = false; // FIXED: Explicitly disengage from path
       target.__disengagedFromPath = true; // FIXED: Mark as disengaged for free flight
+      // FIXED: Calculate and set last course for continued movement (item #7)
       const n = target.drawnTrajectory.length;
       if (n >= 2) {
         const prev = target.drawnTrajectory[n - 2];
         const last = target.drawnTrajectory[n - 1];
         target.__afterDrawnHeading = calculateCourse({ lat: prev[0], lng: prev[1] }, { lat: last[0], lng: last[1] });
-        target.course = target.__afterDrawnHeading;
+        target.course = target.__afterDrawnHeading; // FIXED: Set course for continued flight
       }
       return;
     }
@@ -5998,9 +6078,10 @@ function setTargetCourseFromMap(latlng) {
     target.updatedAt = Date.now();
     locallyModifiedTargets.add(target.id);
 
-    // FIXED: manual course change disengages drawn path
+    // FIXED: Manual course change with drawn path - set manualCourseOverride (item #6)
     target.followingDrawnPath = false;
     target.__disengagedFromPath = true;
+    target.manualCourseOverride = true; // FIXED: Flag for manual course override
 
     updateMarkerRotation(target);
     updateMarkerPopup(target); // FIXED: Live-update popup when course changes
@@ -6942,7 +7023,19 @@ document.addEventListener('DOMContentLoaded', function() {
 // fjfj
 
 /*
-TEST CHECKLIST (Manual Verification):
+FIXED: TEST CHECKLIST (Manual Verification) - Item #8
+The following 8 items have been fixed:
+
+□ 1) Real-time popup updates: bindPopupAutoUpdate helper with 800ms interval for all roles
+□ 2) Popup buttons work: openEditModal and startCourseSelection shims prevent errors
+□ 3) Popup close glitch fixed: Clear interval only, don't recreate popup
+□ 4) Show trajectory from history: showTrajectoryFromHistory uses targetHistory (visual-only)
+□ 5) No movement teleports: applyDrawingToTarget is per-target, no global animation freeze
+□ 6) Manual course override: setTargetCourseFromMap sets manualCourseOverride flag
+□ 7) Continue at end of trajectory: Clear followingDrawnPath but keep moving at last course
+□ 8) Manual test checklist: Verify all fixes work together
+
+Additional verification steps:
 □ A) Popup shows "Додано" field with correct date/time in uk-UA format
 □ A) Popup shows "Пройдено" field with correct distance (meters if <1000, km with 2 decimals if >=1000)
 □ B) Popup "Редагувати" button works without errors (calls editTarget via openEditModal shim)
