@@ -1583,45 +1583,104 @@
     border-radius: 50% !important;
 }
 
+/* UI UPDATE: Futuristic target popup styles */
 .target-info-window {
-    padding: 16px;
+    padding: 18px;
     color: var(--text);
     font-family: var(--font);
-    min-width: 250px;
+    min-width: 320px;
+    max-width: 400px;
 }
 
 .target-info-window h4 {
     color: var(--accent);
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
     border-bottom: 2px solid rgba(0, 188, 212, 0.3);
     font-family: 'Orbitron', sans-serif;
     letter-spacing: 0.5px;
     text-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
-}
-
-.target-info-window p {
-    margin: 8px 0;
-    font-size: 13px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    line-height: 1.6;
+    gap: 10px;
 }
 
-.target-info-window strong {
+.target-info-window h4 i {
+    filter: drop-shadow(0 0 6px var(--accent));
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        filter: drop-shadow(0 0 6px var(--accent));
+        transform: scale(1);
+    }
+    50% {
+        filter: drop-shadow(0 0 12px var(--accent));
+        transform: scale(1.1);
+    }
+}
+
+/* UI UPDATE: Data grid layout for target parameters */
+.target-data-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.data-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(0, 188, 212, 0.05);
+    border: 1px solid rgba(0, 188, 212, 0.2);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.data-item:hover {
+    background: rgba(0, 188, 212, 0.1);
+    border-color: rgba(0, 188, 212, 0.4);
+    transform: translateX(2px);
+}
+
+.data-label {
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.data-label i {
     color: var(--accent);
-    font-weight: 600;
-    min-width: 100px;
-    display: inline-block;
+    width: 16px;
+    text-align: center;
 }
 
-.target-info-window button {
-    width: 100%;
-    margin-top: 8px;
-    padding: 10px;
+.data-value {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Roboto Mono', monospace;
+}
+
+/* UI UPDATE: Action buttons container */
+.action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* UI UPDATE: Individual action button styles with neon glow */
+.action-button {
+    padding: 12px 8px;
     background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(0, 188, 212, 0.1));
     border: 2px solid rgba(0, 188, 212, 0.4);
     color: var(--accent);
@@ -1629,24 +1688,125 @@
     cursor: pointer;
     font-weight: 600;
     transition: var(--transition);
-    font-size: 13px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
 }
 
-.target-info-window button:hover {
+.action-button:hover {
     border-color: var(--accent);
-    box-shadow: var(--glow) rgba(0, 188, 212, 0.3);
+    box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
     transform: translateY(-2px);
+    background: linear-gradient(135deg, rgba(0, 188, 212, 0.3), rgba(0, 188, 212, 0.15));
 }
 
-.target-info-window button.btn-danger {
+.action-button:active {
+    transform: translateY(0);
+    box-shadow: 0 0 30px rgba(0, 188, 212, 0.6);
+}
+
+.action-button i {
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* UI UPDATE: Pulse animation for active buttons */
+@keyframes buttonPulse {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(0, 188, 212, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(0, 188, 212, 0.6);
+    }
+}
+
+.action-button:not(:active):hover {
+    animation: buttonPulse 1.5s ease-in-out infinite;
+}
+
+/* UI UPDATE: Specific button variants */
+.action-button.edit-btn {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(46, 204, 113, 0.1));
+    border-color: rgba(46, 204, 113, 0.4);
+    color: var(--accent2);
+}
+
+.action-button.edit-btn:hover {
+    border-color: var(--accent2);
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
+}
+
+.action-button.course-btn {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(155, 89, 182, 0.1));
+    border-color: rgba(155, 89, 182, 0.4);
+    color: #9b59b6;
+}
+
+.action-button.course-btn:hover {
+    border-color: #9b59b6;
+    box-shadow: 0 0 20px rgba(155, 89, 182, 0.4);
+}
+
+.action-button.trajectory-btn {
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.2), rgba(243, 156, 18, 0.1));
+    border-color: rgba(243, 156, 18, 0.4);
+    color: #f39c12;
+}
+
+.action-button.trajectory-btn:hover {
+    border-color: #f39c12;
+    box-shadow: 0 0 20px rgba(243, 156, 18, 0.4);
+}
+
+.action-button.predict-btn {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 255, 255, 0.1));
+    border-color: rgba(0, 255, 255, 0.4);
+    color: #00ffff;
+    grid-column: 1 / -1;
+    animation: predictButtonGlow 2s ease-in-out infinite;
+}
+
+@keyframes predictButtonGlow {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+    }
+}
+
+.action-button.predict-btn:hover {
+    border-color: #00ffff;
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.5);
+}
+
+.action-button.delete-btn {
     background: linear-gradient(135deg, rgba(255, 118, 117, 0.2), rgba(255, 118, 117, 0.1));
     border-color: rgba(255, 118, 117, 0.4);
     color: var(--error);
+    grid-column: 1 / -1;
 }
 
-.target-info-window button.btn-danger:hover {
+.action-button.delete-btn:hover {
     border-color: var(--error);
-    box-shadow: var(--glow) rgba(255, 118, 117, 0.3);
+    box-shadow: 0 0 20px rgba(255, 118, 117, 0.4);
+}
+
+/* UI UPDATE: Touch flash effect for mobile */
+.action-button.touch-flash {
+    animation: touchFlash 0.3s ease;
+}
+
+@keyframes touchFlash {
+    0%, 100% {
+        background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(0, 188, 212, 0.1));
+    }
+    50% {
+        background: linear-gradient(135deg, rgba(0, 188, 212, 0.5), rgba(0, 188, 212, 0.3));
+    }
 }
 
 /* UI UPDATE: Smooth popup animation */
@@ -1669,19 +1829,44 @@
 @media (max-width: 768px) {
     .leaflet-popup-content-wrapper {
         max-width: calc(100vw - 40px) !important;
+        position: fixed !important;
+        bottom: 60px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
     }
 
     .target-info-window {
-        padding: 12px;
+        padding: 16px;
         min-width: auto;
+        width: calc(100vw - 80px);
     }
 
     .target-info-window h4 {
-        font-size: 16px;
+        font-size: 18px;
     }
 
-    .target-info-window p {
+    .data-label {
+        font-size: 11px;
+    }
+
+    .data-value {
         font-size: 12px;
+    }
+
+    .action-buttons {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .action-button {
+        padding: 14px 12px;
+        font-size: 14px;
+        min-height: 48px;
+    }
+
+    .action-button.predict-btn,
+    .action-button.delete-btn {
+        grid-column: 1;
     }
 }
 
@@ -1702,6 +1887,21 @@
 @keyframes bounce {
     0%, 100% { transform: translate(-50%, 0); }
     50% { transform: translate(-50%, -10px); }
+}
+
+/* UI UPDATE: Predicted trajectory line styles */
+.predicted-trajectory-line {
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6));
+    animation: dashAnimation 2s linear infinite;
+}
+
+@keyframes dashAnimation {
+    from {
+        stroke-dashoffset: 0;
+    }
+    to {
+        stroke-dashoffset: 30;
+    }
 }
 
 /* UI UPDATE: Ripple animation for touch feedback */
@@ -2078,6 +2278,9 @@ let smoothAnimations = new Map();
 let isDrawingMode = false;
 let drawnTrajectory = [];
 let tempDrawingLine = null;
+// UI UPDATE: Predicted trajectory tracking
+let predictedPolylines = {};
+let trajectoryTimeouts = {};
 let drawingTarget = null;
 // Глобальные переменные ДОБАВИТЬ
 let isFreeDrawingMode = false;
@@ -3733,28 +3936,56 @@ function addTargetToMap(target) {
     const createdDate = new Date(target.createdAt);
     const formattedDate = createdDate.toLocaleString('uk-UA');
     
-    // ОБНОВЛЕННЫЙ popup контент с кнопкой рисования
+    // UI UPDATE: Enhanced futuristic popup with grid layout
+    const updatedDate = new Date(target.updatedAt || target.createdAt);
+    const formattedUpdated = updatedDate.toLocaleString('uk-UA');
     const popupContent = `
-        <div class="target-info-window">
-            <h4>${target.name}</h4>
-            <p><strong>Тип:</strong> ${targetTypes[target.type]?.name || target.type}</p>
-            <p><strong>Швидкість:</strong> ${target.speed} км/год</p>
-            <p><strong>Курс:</strong> ${target.course}°</p>
-            <p><strong>Відстань:</strong> ${(target.distance / 1000).toFixed(1)} км</p>
-            <p><strong>Додано:</strong> ${formattedDate}</p>
+        <div class="target-info-window futuristic-popup">
+            <h4><i class="fas fa-crosshairs"></i> ${target.name}</h4>
+            
+            <div class="target-data-grid">
+                <div class="data-item">
+                    <span class="data-label"><i class="fas fa-map-marker-alt"></i> Координати:</span>
+                    <span class="data-value">${target.latitude.toFixed(6)}, ${target.longitude.toFixed(6)}</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label"><i class="fas fa-compass"></i> Курс:</span>
+                    <span class="data-value">${target.course}°</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label"><i class="fas fa-tachometer-alt"></i> Швидкість:</span>
+                    <span class="data-value">${target.speed} км/год</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label"><i class="fas fa-ruler"></i> Пройдено:</span>
+                    <span class="data-value">${(target.distance / 1000).toFixed(1)} км</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label"><i class="fas fa-calendar-plus"></i> Додано:</span>
+                    <span class="data-value">${formattedDate}</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label"><i class="fas fa-clock"></i> Оновлено:</span>
+                    <span class="data-value">${formattedUpdated}</span>
+                </div>
+            </div>
+            
             ${isAdmin ? `
             <div class="action-buttons">
                 <button class="action-button edit-btn" onclick="event.stopPropagation(); editTarget('${target.id}')">
                     <i class="fas fa-edit"></i> Редагувати
                 </button>
-                <button class="action-button delete-btn" onclick="event.stopPropagation(); deleteTarget('${target.id}')">
-                    <i class="fas fa-trash"></i> Видалити
-                </button>
                 <button class="action-button course-btn" onclick="event.stopPropagation(); showCourseSelectionModal('${target.id}')">
                     <i class="fas fa-route"></i> Курс
                 </button>
-                <button class="action-button drawing-btn" onclick="event.stopPropagation(); toggleFreeDrawingMode('${target.id}')">
-                    <i class="fas fa-paint-brush"></i> Малювати траєкторію
+                <button class="action-button trajectory-btn" onclick="event.stopPropagation(); toggleFreeDrawingMode('${target.id}')">
+                    <i class="fas fa-paint-brush"></i> Траєкторія
+                </button>
+                <button class="action-button predict-btn" onclick="event.stopPropagation(); showPredictedTrajectory('${target.id}', 150)">
+                    <i class="fas fa-crystal-ball"></i> 🔮 Прогноз траєкторії
+                </button>
+                <button class="action-button delete-btn" onclick="event.stopPropagation(); deleteTarget('${target.id}')">
+                    <i class="fas fa-trash"></i> Видалити
                 </button>
             </div>
             ` : ''}
@@ -3773,6 +4004,8 @@ function addTargetToMap(target) {
 
     marker.on('popupopen', function() {
         pausedTargets.add(target.id);
+        // UI UPDATE: Setup mobile touch events for popup
+        setupPopupTouchEvents(marker);
     });
     
     marker.on('popupclose', function() {
@@ -5214,6 +5447,8 @@ function addTargetToMap(target) {
 
     marker.on('popupopen', function() {
         pausedTargets.add(target.id);
+        // UI UPDATE: Setup mobile touch events for popup
+        setupPopupTouchEvents(marker);
     });
     
     marker.on('popupclose', function() {
@@ -5306,6 +5541,163 @@ function removeTrajectory(targetId) {
         map.removeLayer(polylines[targetId]);
         delete polylines[targetId];
     }
+}
+
+// UI UPDATE: Show predicted trajectory - displays future path based on current course
+function showPredictedTrajectory(targetId, distanceKm = 150) {
+    const target = targets.find(t => t.id === targetId);
+    if (!target) return;
+    
+    // Clear any existing predicted trajectory and timeout for this target
+    if (predictedPolylines[targetId]) {
+        map.removeLayer(predictedPolylines[targetId]);
+        delete predictedPolylines[targetId];
+    }
+    if (trajectoryTimeouts[targetId]) {
+        clearTimeout(trajectoryTimeouts[targetId]);
+        delete trajectoryTimeouts[targetId];
+    }
+    
+    // Calculate predicted path points (every 10km for smooth line)
+    const points = [];
+    const numPoints = Math.ceil(distanceKm / 10);
+    
+    for (let i = 0; i <= numPoints; i++) {
+        const distance = (i * distanceKm / numPoints) * 1000; // Convert to meters
+        const point = calculateDestination(
+            target.latitude,
+            target.longitude,
+            target.course,
+            distance
+        );
+        points.push([point.lat, point.lng]);
+    }
+    
+    // Create dashed aqua line for predicted trajectory
+    const predictedLine = L.polyline(points, {
+        color: '#00ffff',
+        weight: 3,
+        opacity: 0,
+        dashArray: '5, 10',
+        className: 'predicted-trajectory-line'
+    });
+    
+    predictedLine.addTo(map);
+    predictedPolylines[targetId] = predictedLine;
+    
+    // Animate opacity from 0 to 0.7
+    let opacity = 0;
+    const fadeIn = setInterval(() => {
+        opacity += 0.05;
+        if (opacity >= 0.7) {
+            opacity = 0.7;
+            clearInterval(fadeIn);
+        }
+        predictedLine.setStyle({ opacity: opacity });
+    }, 30);
+    
+    // Show past trajectory (activate for 10 seconds)
+    const wasShowingTrajectories = showTrajectories;
+    if (!showTrajectories) {
+        showTrajectories = true;
+    }
+    addTrajectory(target);
+    
+    // Set timeout to remove both lines after 10 seconds
+    trajectoryTimeouts[targetId] = setTimeout(() => {
+        // Fade out predicted line
+        let fadeOpacity = 0.7;
+        const fadeOut = setInterval(() => {
+            fadeOpacity -= 0.05;
+            if (fadeOpacity <= 0) {
+                fadeOpacity = 0;
+                clearInterval(fadeOut);
+                if (predictedPolylines[targetId]) {
+                    map.removeLayer(predictedPolylines[targetId]);
+                    delete predictedPolylines[targetId];
+                }
+            }
+            if (predictedLine) {
+                predictedLine.setStyle({ opacity: fadeOpacity });
+            }
+        }, 30);
+        
+        // Restore trajectory setting if it was off
+        if (!wasShowingTrajectories) {
+            showTrajectories = false;
+            if (polylines[targetId]) {
+                map.removeLayer(polylines[targetId]);
+            }
+        }
+        
+        delete trajectoryTimeouts[targetId];
+    }, 10000);
+}
+
+// UI UPDATE: Setup touch events for mobile popup interaction
+function setupPopupTouchEvents(marker) {
+    setTimeout(() => {
+        const popup = marker.getPopup();
+        if (!popup || !popup._container) return;
+        
+        const popupElement = popup._container;
+        let touchStartY = 0;
+        let touchEndY = 0;
+        let isDragging = false;
+        
+        // Touch start
+        popupElement.addEventListener('touchstart', function(e) {
+            touchStartY = e.touches[0].clientY;
+            isDragging = true;
+        }, { passive: true });
+        
+        // Touch move
+        popupElement.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            touchEndY = e.touches[0].clientY;
+            const deltaY = touchEndY - touchStartY;
+            
+            // Visual feedback for swipe down
+            if (deltaY > 0) {
+                popupElement.style.transform = `translateY(${Math.min(deltaY, 100)}px)`;
+                popupElement.style.opacity = Math.max(1 - (deltaY / 200), 0.3);
+            }
+        }, { passive: true });
+        
+        // Touch end
+        popupElement.addEventListener('touchend', function(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const deltaY = touchEndY - touchStartY;
+            
+            // If swiped down more than 50px, close the popup
+            if (deltaY > 50) {
+                marker.closePopup();
+            } else {
+                // Reset position
+                popupElement.style.transform = '';
+                popupElement.style.opacity = '';
+            }
+            
+            touchStartY = 0;
+            touchEndY = 0;
+        }, { passive: true });
+        
+        // Add touch flash effect to buttons
+        const buttons = popupElement.querySelectorAll('.action-button');
+        buttons.forEach(button => {
+            button.addEventListener('touchstart', function() {
+                this.classList.add('touch-flash');
+            }, { passive: true });
+            
+            button.addEventListener('touchend', function() {
+                setTimeout(() => {
+                    this.classList.remove('touch-flash');
+                }, 300);
+            }, { passive: true });
+        });
+    }, 100);
 }
 
 // moveTargets функция - ПОЛНАЯ ВЕРСИЯ С ПЛАВНОЙ АНИМАЦИЕЙ И РИСОВАНИЕМ
