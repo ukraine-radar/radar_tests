@@ -361,6 +361,7 @@
         }
 
         /* UI UPDATE: Floating bottom panel with glass effect and mobile support */
+        /* UI FIX: Enhanced panel with edge glow */
         .panel {
             width: 100%;
             height: 300px;
@@ -371,19 +372,21 @@
             overflow-y: auto;
             transition: var(--transition);
             border-top: 2px solid var(--accent);
-            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5), 0 -2px 20px rgba(0, 188, 212, 0.15);
             flex-shrink: 0;
             position: relative;
         }
 
+        /* UI FIX: Enhanced top glow line */
         .panel::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 1px;
+            height: 2px;
             background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            box-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
         }
 
         /* UI UPDATE: Mobile swipe indicator */
@@ -425,11 +428,12 @@
         }
 
         /* UI UPDATE: Glass panel sections */
+        /* UI FIX: Panel sections with consistent spacing and subtle glow */
         .panel-section {
-            margin-bottom: 15px;
-            background: rgba(0, 0, 0, 0.2);
+            margin-bottom: 16px;
+            background: rgba(0, 0, 0, 0.25);
             backdrop-filter: blur(10px);
-            padding: 12px;
+            padding: 14px;
             border-radius: var(--radius);
             border: 1px solid rgba(0, 188, 212, 0.2);
             transition: var(--transition);
@@ -437,26 +441,28 @@
 
         .panel-section:hover {
             border-color: rgba(0, 188, 212, 0.4);
-            box-shadow: 0 4px 16px rgba(0, 188, 212, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 188, 212, 0.15), inset 0 0 20px rgba(0, 188, 212, 0.05);
         }
 
+        /* UI FIX: Section headers with enhanced icon glow */
         .panel-section h2 {
             color: var(--accent);
-            margin-bottom: 12px;
+            margin-bottom: 14px;
             font-size: 16px;
             font-weight: 600;
             border-bottom: 2px solid rgba(0, 188, 212, 0.3);
-            padding-bottom: 5px;
+            padding-bottom: 8px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             font-family: 'Orbitron', sans-serif;
             letter-spacing: 0.5px;
+            text-shadow: 0 0 8px rgba(0, 188, 212, 0.4);
         }
 
         .panel-section h2 i {
             font-size: 18px;
-            filter: drop-shadow(0 0 6px var(--accent));
+            filter: drop-shadow(0 0 8px var(--accent));
         }
 
         /* UI UPDATE: Modern form inputs */
@@ -1463,36 +1469,58 @@
     transition: var(--transition);
 }
 
+/* UI FIX: Admin tabs with neon styling and icons */
 .admin-tabs {
     display: flex;
     margin-bottom: 15px;
     border-bottom: 2px solid rgba(0, 188, 212, 0.3);
-    gap: 4px;
+    gap: 6px;
+    box-shadow: 0 2px 0 rgba(0, 188, 212, 0.1);
 }
 
+/* UI FIX: Admin tab buttons with icon support and hover effects */
 .admin-tab-btn {
     flex: 1;
-    padding: 12px;
-    background: rgba(0, 0, 0, 0.2);
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
     border: none;
     color: var(--text-dim);
     cursor: pointer;
     border-bottom: 3px solid transparent;
     transition: var(--transition);
-    font-weight: 500;
+    font-weight: 600;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
 }
 
+/* UI FIX: Active tab with glow */
 .admin-tab-btn.active {
-    background: rgba(0, 188, 212, 0.1);
+    background: linear-gradient(180deg, rgba(0, 188, 212, 0.15), rgba(0, 188, 212, 0.08));
     border-bottom: 3px solid var(--accent);
     color: var(--accent);
+    text-shadow: 0 0 8px rgba(0, 188, 212, 0.5);
+    box-shadow: 0 -2px 15px rgba(0, 188, 212, 0.2);
 }
 
+/* UI FIX: Subtle hover for inactive tabs */
 .admin-tab-btn:hover:not(.active) {
-    background: rgba(0, 188, 212, 0.05);
+    background: rgba(0, 188, 212, 0.08);
     color: var(--text);
+    border-bottom-color: rgba(0, 188, 212, 0.3);
+}
+
+/* UI FIX: Icon styling for admin tabs */
+.admin-tab-btn i {
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+.admin-tab-btn.active i {
+    filter: drop-shadow(0 0 8px currentColor);
 }
 
 .admin-tab-content {
@@ -1510,56 +1538,88 @@
     }
 }
 
+/* UI FIX: Neon toggle-style panel switcher */
 .panel-switcher {
     display: flex;
     margin-top: 15px;
     border-top: 2px solid rgba(0, 188, 212, 0.2);
     padding-top: 10px;
-    gap: 8px;
+    gap: 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    position: relative;
+    overflow: hidden;
 }
 
+.panel-switcher::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    background: linear-gradient(135deg, rgba(0, 188, 212, 0.3), rgba(0, 188, 212, 0.15));
+    border-radius: var(--radius-sm);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--glow) rgba(0, 188, 212, 0.4);
+    pointer-events: none;
+}
+
+.panel-switcher.admin-active::before {
+    transform: translateX(calc(100% + 4px));
+}
+
+/* UI FIX: Toggle button styling with smooth transitions */
 .panel-switch-btn {
     flex: 1;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.2);
+    padding: 12px 16px;
+    background: transparent;
     backdrop-filter: blur(10px);
-    border: 2px solid rgba(0, 188, 212, 0.2);
+    border: none;
     color: var(--text-dim);
     cursor: pointer;
     border-radius: var(--radius-sm);
     transition: var(--transition);
-    font-weight: 500;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+    font-size: 14px;
 }
 
+/* UI FIX: Active state with accent glow */
 .panel-switch-btn.active {
-    background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(0, 188, 212, 0.1));
-    border-color: var(--accent);
     color: var(--accent);
-    box-shadow: 0 0 15px rgba(0, 188, 212, 0.3);
+    text-shadow: 0 0 8px rgba(0, 188, 212, 0.6);
 }
 
+/* UI FIX: Hover effect for inactive button */
 .panel-switch-btn:hover:not(.active) {
-    background: rgba(0, 188, 212, 0.1);
-    border-color: rgba(0, 188, 212, 0.3);
     color: var(--text);
 }
 
+/* UI FIX: Icon glow effect */
 .panel-switch-btn i {
-    filter: drop-shadow(0 0 4px currentColor);
+    filter: drop-shadow(0 0 6px currentColor);
+    transition: var(--transition);
 }
 
-/* UI UPDATE: Leaflet popup redesign - futuristic target cards */
+.panel-switch-btn.active i {
+    filter: drop-shadow(0 0 10px currentColor);
+}
+
+/* UI FIX: Leaflet popup redesign - cohesive futuristic target cards */
 .leaflet-popup-content-wrapper {
     background: var(--panel) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border: 2px solid var(--accent) !important;
     border-radius: var(--radius) !important;
-    box-shadow: var(--shadow) !important;
+    box-shadow: var(--shadow), var(--glow) rgba(0, 188, 212, 0.2) !important;
     padding: 0 !important;
 }
 
@@ -1575,53 +1635,79 @@
     font-size: 24px !important;
     font-weight: bold !important;
     padding: 4px 8px !important;
+    transition: var(--transition) !important;
 }
 
 .leaflet-popup-close-button:hover {
     color: var(--text) !important;
-    background: rgba(0, 188, 212, 0.1) !important;
+    background: rgba(0, 188, 212, 0.15) !important;
     border-radius: 50% !important;
+    box-shadow: var(--glow) rgba(0, 188, 212, 0.3) !important;
 }
 
+/* UI FIX: Target popup window with parameter grid */
 .target-info-window {
-    padding: 16px;
+    padding: 18px;
     color: var(--text);
     font-family: var(--font);
-    min-width: 250px;
+    min-width: 280px;
+    background: linear-gradient(135deg, rgba(0, 188, 212, 0.03), transparent);
 }
 
 .target-info-window h4 {
     color: var(--accent);
     font-size: 18px;
     font-weight: 600;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
     border-bottom: 2px solid rgba(0, 188, 212, 0.3);
     font-family: 'Orbitron', sans-serif;
     letter-spacing: 0.5px;
     text-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
-}
-
-.target-info-window p {
-    margin: 8px 0;
-    font-size: 13px;
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* UI FIX: Parameter grid layout for popup info */
+.target-info-window p {
+    margin: 10px 0;
+    font-size: 13px;
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    align-items: center;
+    gap: 12px;
     line-height: 1.6;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 188, 212, 0.1);
+}
+
+.target-info-window p:last-of-type {
+    border-bottom: none;
 }
 
 .target-info-window strong {
     color: var(--accent);
     font-weight: 600;
-    min-width: 100px;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.target-info-window button {
-    width: 100%;
-    margin-top: 8px;
-    padding: 10px;
+/* UI FIX: Action buttons container with proper spacing */
+.target-info-window .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 2px solid rgba(0, 188, 212, 0.2);
+}
+
+/* UI FIX: Unified neon button style for popup with glow effects */
+.target-info-window button,
+.target-info-window .action-button {
+    padding: 10px 12px;
     background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(0, 188, 212, 0.1));
     border: 2px solid rgba(0, 188, 212, 0.4);
     color: var(--accent);
@@ -1630,23 +1716,92 @@
     font-weight: 600;
     transition: var(--transition);
     font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
 }
 
-.target-info-window button:hover {
+/* UI FIX: Full-width button when alone */
+.target-info-window button:only-child {
+    grid-column: 1 / -1;
+}
+
+/* UI FIX: Pulsate animation for active buttons */
+@keyframes pulsate {
+    0%, 100% {
+        box-shadow: var(--glow) rgba(0, 188, 212, 0.3);
+    }
+    50% {
+        box-shadow: var(--glow) rgba(0, 188, 212, 0.6);
+    }
+}
+
+/* UI FIX: Hover effects with glow */
+.target-info-window button:hover,
+.target-info-window .action-button:hover {
     border-color: var(--accent);
-    box-shadow: var(--glow) rgba(0, 188, 212, 0.3);
+    box-shadow: var(--glow) rgba(0, 188, 212, 0.4);
     transform: translateY(-2px);
+    animation: pulsate 1.5s ease-in-out infinite;
 }
 
-.target-info-window button.btn-danger {
+/* UI FIX: Touch/active state for mobile */
+.target-info-window button:active,
+.target-info-window .action-button:active {
+    transform: translateY(0);
+    box-shadow: var(--glow) rgba(0, 188, 212, 0.6);
+}
+
+/* UI FIX: Delete button variant */
+.target-info-window button.btn-danger,
+.target-info-window .action-button.delete-btn {
     background: linear-gradient(135deg, rgba(255, 118, 117, 0.2), rgba(255, 118, 117, 0.1));
     border-color: rgba(255, 118, 117, 0.4);
     color: var(--error);
 }
 
-.target-info-window button.btn-danger:hover {
+.target-info-window button.btn-danger:hover,
+.target-info-window .action-button.delete-btn:hover {
     border-color: var(--error);
-    box-shadow: var(--glow) rgba(255, 118, 117, 0.3);
+    box-shadow: var(--glow) rgba(255, 118, 117, 0.4);
+    animation: pulsate 1.5s ease-in-out infinite;
+}
+
+@keyframes pulsate {
+    0%, 100% {
+        box-shadow: var(--glow) rgba(255, 118, 117, 0.3);
+    }
+    50% {
+        box-shadow: var(--glow) rgba(255, 118, 117, 0.6);
+    }
+}
+
+/* UI FIX: Course button variant */
+.target-info-window .action-button.course-btn {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(46, 204, 113, 0.1));
+    border-color: rgba(46, 204, 113, 0.4);
+    color: var(--accent2);
+}
+
+.target-info-window .action-button.course-btn:hover {
+    border-color: var(--accent2);
+    box-shadow: var(--glow) rgba(46, 204, 113, 0.4);
+}
+
+/* UI FIX: Drawing button variant */
+.target-info-window .action-button.drawing-btn {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(155, 89, 182, 0.1));
+    border-color: rgba(155, 89, 182, 0.4);
+    color: #9b59b6;
+    grid-column: 1 / -1;
+}
+
+.target-info-window .action-button.drawing-btn:hover {
+    border-color: #9b59b6;
+    box-shadow: var(--glow) rgba(155, 89, 182, 0.4);
 }
 
 /* UI UPDATE: Smooth popup animation */
@@ -1665,14 +1820,14 @@
     }
 }
 
-/* UI UPDATE: Mobile popup as bottom drawer */
+/* UI FIX: Mobile popup adaptation with touch-friendly sizing */
 @media (max-width: 768px) {
     .leaflet-popup-content-wrapper {
         max-width: calc(100vw - 40px) !important;
     }
 
     .target-info-window {
-        padding: 12px;
+        padding: 14px;
         min-width: auto;
     }
 
@@ -1682,6 +1837,33 @@
 
     .target-info-window p {
         font-size: 12px;
+        grid-template-columns: 100px 1fr;
+    }
+
+    /* UI FIX: Touch-friendly button sizing on mobile */
+    .target-info-window button,
+    .target-info-window .action-button {
+        padding: 12px 10px;
+        font-size: 12px;
+        min-height: 44px;
+    }
+
+    /* UI FIX: Single column layout on small screens */
+    .target-info-window .action-buttons {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    /* UI FIX: Mobile panel switcher */
+    .panel-switch-btn {
+        padding: 14px 12px;
+        font-size: 13px;
+    }
+
+    /* UI FIX: Mobile admin tabs */
+    .admin-tab-btn {
+        padding: 12px 10px;
+        font-size: 13px;
     }
 }
 
@@ -1850,9 +2032,14 @@
     <div class="panel-section admin-panel" id="adminPanel" style="display: none;">
         <h2><i class="fas fa-user-shield"></i>Панель адміністратора</h2>
         
+        <!-- UI FIX: Admin tabs with icons -->
         <div class="admin-tabs">
-            <button class="admin-tab-btn active" onclick="switchAdminTab('targets')">Цілі</button>
-            <button class="admin-tab-btn" onclick="switchAdminTab('settings')">Налаштування</button>
+            <button class="admin-tab-btn active" onclick="switchAdminTab('targets')">
+                <i class="fas fa-bullseye"></i> Цілі
+            </button>
+            <button class="admin-tab-btn" onclick="switchAdminTab('settings')">
+                <i class="fas fa-cog"></i> Налаштування
+            </button>
         </div>
 
         <!-- Вкладка Цели -->
@@ -6008,22 +6195,26 @@ function togglePanel() {
 }
 
 // Функции для управления панелями
+// UI FIX: Enhanced panel switcher with animated background
 function switchPanel(panelType) {
     const userPanel = document.getElementById('userPanel');
     const adminPanel = document.getElementById('adminPanel');
     const userBtn = document.querySelector('.panel-switch-btn:nth-child(1)');
     const adminBtn = document.getElementById('adminPanelBtn');
+    const panelSwitcher = document.querySelector('.panel-switcher');
     
     if (panelType === 'user') {
         userPanel.style.display = 'block';
         adminPanel.style.display = 'none';
         userBtn.classList.add('active');
         adminBtn.classList.remove('active');
+        panelSwitcher.classList.remove('admin-active');
     } else if (panelType === 'admin' && isAdmin) {
         userPanel.style.display = 'none';
         adminPanel.style.display = 'block';
         userBtn.classList.remove('active');
         adminBtn.classList.add('active');
+        panelSwitcher.classList.add('admin-active');
     }
 }
 
