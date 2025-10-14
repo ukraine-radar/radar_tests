@@ -17,6 +17,9 @@
       crossorigin="anonymous" referrerpolicy="no-referrer"/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.contextmenu@1.4.0/dist/leaflet.contextmenu.css" 
       crossorigin="anonymous"/>
+    
+    <!-- UI UPDATE: Link to external modern CSS -->
+    <link rel="stylesheet" href="style.css">
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -28,952 +31,13 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- UI UPDATE: Link to external UI interactions script -->
+    <script src="ui.js" defer></script>
+    
+    <!-- UI UPDATE: Old inline styles moved to style.css -->
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(135deg, #0c0e2a 0%, #1e2142 100%);
-            color: #fff;
-            overflow: hidden;
-            height: 100vh;
-        }
-
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100vw;
-        }
-
-        .header {
-            background: linear-gradient(90deg, #2d3436 0%, #2c3e50 100%);
-            padding: 12px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            border-bottom: 2px solid #00cec9;
-            flex-shrink: 0;
-        }
-
-        .header h1 {
-            font-size: 20px;
-            font-weight: bold;
-            color: #00cec9;
-            text-shadow: 0 0 10px rgba(0, 206, 201, 0.5);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 30%;
-        }
-
-        .header h1 i {
-            margin-right: 8px;
-        }
-
-        .search-container {
-            position: relative;
-            flex: 1;
-            max-width: 400px;
-            margin: 0 20px;
-        }
-
-        .search-box {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        #searchInput {
-            width: 100%;
-            padding: 10px 40px 10px 15px;
-            border: 2px solid #34495e;
-            border-radius: 25px;
-            background: #2d3436;
-            color: #fff;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        #searchInput:focus {
-            outline: none;
-            border-color: #00cec9;
-            box-shadow: 0 0 10px rgba(0, 206, 201, 0.5);
-        }
-
-        .search-btn {
-            position: absolute;
-            right: 10px;
-            background: none;
-            border: none;
-            color: #00cec9;
-            cursor: pointer;
-            font-size: 16px;
-            padding: 5px;
-        }
-
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #2d3436;
-            border: 2px solid #34495e;
-            border-top: none;
-            border-radius: 0 0 5px 5px;
-            max-height: 200px;
-            overflow-y: auto;
-            display: none;
-            z-index: 1000;
-        }
-
-        .search-result-item {
-            padding: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid #34495e;
-            transition: background-color 0.2s;
-        }
-
-        .search-result-item:hover {
-            background: #34495e;
-        }
-
-        .search-result-item:last-child {
-            border-bottom: none;
-        }
-
-        .header-controls {
-            display: flex;
-            gap: 8px;
-            flex-wrap: nowrap;
-        }
-
-        .header-btn {
-            background: linear-gradient(90deg, #0984e3 0%, #00cec9 100%);
-            border: none;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 14px;
-            white-space: nowrap;
-        }
-
-        .header-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 206, 201, 0.4);
-        }
-
-        .main-content {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-            flex-direction: column;
-        }
-
-        #map {
-            flex: 1;
-            z-index: 1;
-            position: relative;
-        }
-
-        .crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            z-index: 999;
-            pointer-events: none;
-        }
-
-        .crosshair::before, .crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(0, 206, 201, 0.8);
-        }
-
-        .crosshair::before {
-            width: 2px;
-            height: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        .crosshair::after {
-            width: 40px;
-            height: 2px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        .map-switcher {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: rgba(44, 62, 80, 0.9);
-            padding: 8px;
-            border-radius: 5px;
-            border: 1px solid #00cec9;
-        }
-
-        .map-switcher select {
-            background: #2d3436;
-            color: white;
-            border: 1px solid #34495e;
-            border-radius: 3px;
-            padding: 5px;
-        }
-
-        .panel {
-            width: 100%;
-            height: 300px;
-            background: rgba(30, 33, 66, 0.95);
-            padding: 15px;
-            overflow-y: auto;
-            transition: all 0.3s ease;
-            border-top: 2px solid #00cec9;
-            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.3);
-            flex-shrink: 0;
-        }
-
-        .panel.collapsed {
-            height: 50px;
-            padding: 10px;
-            overflow: hidden;
-        }
-
-        .panel-section {
-            margin-bottom: 15px;
-            background: rgba(44, 62, 80, 0.6);
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #34495e;
-        }
-
-        .panel-section h2 {
-            color: #00cec9;
-            margin-bottom: 12px;
-            font-size: 16px;
-            border-bottom: 2px solid #00cec9;
-            padding-bottom: 5px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .panel-section h2 i {
-            font-size: 18px;
-        }
-
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #dfe6e9;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #34495e;
-            border-radius: 5px;
-            background: #2d3436;
-            color: #fff;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #00cec9;
-            box-shadow: 0 0 10px rgba(0, 206, 201, 0.5);
-        }
-
-        .btn {
-            background: linear-gradient(90deg, #0984e3 0%, #00cec9 100%);
-            border: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 5px;
-            font-size: 14px;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 206, 201, 0.4);
-        }
-
-        .btn-danger {
-            background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
-        }
-
-        .btn-secondary {
-            background: linear-gradient(90deg, #7f8c8d 0%, #636e72 100%);
-        }
-
-        .btn-margin {
-            margin-top: 10px;
-        }
-
-        .targets-list {
-            max-height: 150px;
-            overflow-y: auto;
-            margin-top: 10px;
-        }
-
-        .target-item {
-            background: rgba(52, 73, 94, 0.6);
-            padding: 10px;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            border-left: 4px solid #00cec9;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .target-item:hover {
-            background: rgba(52, 73, 94, 0.9);
-            transform: translateX(5px);
-        }
-
-        .target-item h4 {
-            color: #00cec9;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-        }
-
-        .target-item p {
-            color: #dfe6e9;
-            font-size: 12px;
-            margin: 2px 0;
-        }
-
-        .target-item .target-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .target-item .target-actions button {
-            flex: 1;
-            padding: 6px;
-            font-size: 11px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .stat-card {
-            background: rgba(52, 73, 94, 0.6);
-            padding: 12px;
-            border-radius: 6px;
-            text-align: center;
-            border: 1px solid #34495e;
-        }
-
-        .stat-card h3 {
-            color: #00cec9;
-            font-size: 20px;
-            margin-bottom: 5px;
-        }
-
-        .stat-card p {
-            color: #dfe6e9;
-            font-size: 12px;
-        }
-
-        .status-bar {
-            background: rgba(44, 62, 80, 0.9);
-            padding: 8px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-top: 2px solid #00cec9;
-            font-size: 12px;
-            flex-shrink: 0;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .online-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #00b894;
-            animation: pulse 2s infinite;
-        }
-
-        .offline-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #d63031;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(5px);
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, #2d3436 0%, #2c3e50 100%);
-            margin: 15% auto;
-            padding: 20px;
-            border-radius: 12px;
-            width: 350px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-            border: 2px solid #00cec9;
-            position: relative;
-        }
-
-        .modal-content h3 {
-            color: #00cec9;
-            margin-bottom: 15px;
-            text-align: center;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 15px;
-        }
-
-        .modal-buttons button {
-            flex: 1;
-            padding: 10px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        .course-notification {
-            position: fixed;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(90deg, #0984e3 0%, #00cec9 100%);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 6px;
-            z-index: 1001;
-            box-shadow: 0 4px 15px rgba(0, 206, 201, 0.5);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .png-icon-marker {
-            background: transparent !important;
-            border: none !important;
-        }
-
-        .rotatable-png-icon {
-            width: 40px;
-            height: 40px;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            transition: transform 0.5s ease;
-            transform-origin: center;
-        }
-
-        .marker-cluster {
-            background: rgba(231, 76, 60, 0.8);
-            border-radius: 50%;
-            color: white;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 3px solid white;
-            box-shadow: 0 0 15px rgba(231, 76, 60, 0.8);
-        }
-
-        .marker-cluster-small {
-            width: 40px;
-            height: 40px;
-            font-size: 14px;
-        }
-
-        .marker-cluster-medium {
-            width: 50px;
-            height: 50px;
-            font-size: 16px;
-        }
-
-        .marker-cluster-large {
-            width: 60px;
-            height: 60px;
-            font-size: 18px;
-        }
-
-        .search-marker {
-            background: transparent !important;
-            border: none !important;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 18px;
-                max-width: 30%;
-            }
-            
-            .search-container {
-                max-width: 250px;
-                margin: 0 10px;
-            }
-            
-            .header-btn {
-                padding: 6px 10px;
-                font-size: 12px;
-            }
-            
-            .panel {
-                height: 280px;
-            }
-            
-            .panel.collapsed {
-                height: 45px;
-            }
-            
-            .modal-content {
-                width: 90%;
-                margin: 20% auto;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .header {
-                padding: 10px;
-                flex-wrap: wrap;
-            }
-            
-            .header h1 {
-                font-size: 16px;
-                max-width: 100%;
-                margin-bottom: 10px;
-                order: 1;
-            }
-            
-            .search-container {
-                order: 3;
-                max-width: 100%;
-                margin: 10px 0 0 0;
-            }
-            
-            .header-controls {
-                order: 2;
-                width: 100%;
-                justify-content: space-between;
-            }
-            
-            .header-btn {
-                padding: 5px 8px;
-                font-size: 11px;
-            }
-            
-            .header-btn span {
-                display: none;
-            }
-            
-            .action-button.drawing-btn {
-    background: linear-gradient(90deg, #9b59b6 0%, #8e44ad 100%);
-}
-
-.action-button.drawing-btn:hover {
-    background: linear-gradient(90deg, #8e44ad 0%, #7d3c98 100%);
-}
-
-            /* ↓↓↓ СТИЛИ ДЛЯ МОБИЛЬНОГО ВЫБОРА ЦЕЛЕЙ ↓↓↓ */
-@media (max-width: 768px) {
-    .mobile-selection-panel {
-        position: fixed;
-        bottom: 60px;
-        left: 0;
-        right: 0;
-        background: rgba(44, 62, 80, 0.95);
-        padding: 10px;
-        border-top: 2px solid #00cec9;
-        z-index: 1000;
-        display: none;
-    }
-    
-    .mobile-selection-controls {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    
-    .mobile-select-btn {
-        background: linear-gradient(90deg, #0984e3 0%, #00cec9 100%);
-        border: none;
-        color: white;
-        padding: 8px 12px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 12px;
-        flex: 1;
-        min-width: 80px;
-        max-width: 120px;
-    }
-    
-    .mobile-select-btn.btn-danger {
-        background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
-    }
-    
-    .target-checkbox {
-        position: absolute;
-        top: -5px;
-        left: -5px;
-        z-index: 100;
-        width: 20px;
-        height: 20px;
-    }
-    
-    .checkbox-marker {
-        background: transparent !important;
-        border: none !important;
-    }
-    
-    .selected-target {
-        filter: drop-shadow(0 0 10px #00cec9) !important;
-    }
-}
-
-/* Стили для быстрого меню действий */
-#quickActionsMenu {
-    position: fixed;
-    z-index: 1000;
-    background: rgba(44, 62, 80, 0.95);
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #00cec9;
-    display: none;
-}
-
-#quickActionsMenu button {
-    background: #3498db;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 3px;
-    margin: 2px;
-    font-size: 12px;
-    display: block;
-    width: 100%;
-}
-
-#quickActionsMenu button:first-child {
-    background: #e74c3c;
-}
-
-#quickActionsMenu button:last-child {
-    background: #7f8c8d;
-}
-/* ↑↑↑ КОНЕЦ СТИЛЕЙ ДЛЯ МОБИЛЬНОГО ВЫБОРА ЦЕЛЕЙ ↑↑↑ */
-
-            /* ↓↓↓ ДОБАВИТЬ СТИЛИ ДЛЯ ГРУППОВЫХ ДЕЙСТВИЙ ЗДЕСЬ ↓↓↓ */
-.group-actions-panel {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, #2d3436 0%, #2c3e50 100%);
-    border: 2px solid #00cec9;
-    border-radius: 10px;
-    padding: 15px;
-    z-index: 10000;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-    min-width: 300px;
-}
-
-.group-panel-header {
-    text-align: center;
-    margin-bottom: 15px;
-    border-bottom: 2px solid #00cec9;
-    padding-bottom: 10px;
-}
-
-.group-panel-header h3 {
-    color: #00cec9;
-    margin: 0 0 5px 0;
-    font-size: 16px;
-}
-
-#selectedCount {
-    color: #dfe6e9;
-    font-size: 14px;
-}
-
-.group-actions-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.group-btn {
-    background: linear-gradient(90deg, #0984e3 0%, #00cec9 100%);
-    border: none;
-    color: white;
-    padding: 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.3s ease;
-    font-size: 14px;
-}
-
-.group-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 206, 201, 0.4);
-}
-
-.group-btn.btn-danger {
-    background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
-}
-
-.selected-target {
-    filter: drop-shadow(0 0 10px #00cec9);
-}
-/* ↑↑↑ КОНЕЦ СТИЛЕЙ ДЛЯ ГРУППОВЫХ ДЕЙСТВИЙ ↑↑↑ */
-            
-            /* Стили для разделения панелей */
-.user-panel, .admin-panel {
-    transition: all 0.3s ease;
-}
-
-.admin-tabs {
-    display: flex;
-    margin-bottom: 15px;
-    border-bottom: 2px solid #00cec9;
-}
-
-.admin-tab-btn {
-    flex: 1;
-    padding: 10px;
-    background: rgba(44, 62, 80, 0.6);
-    border: none;
-    color: #dfe6e9;
-    cursor: pointer;
-    border-bottom: 3px solid transparent;
-    transition: all 0.3s ease;
-}
-
-.admin-tab-btn.active {
-    background: rgba(44, 62, 80, 0.9);
-    border-bottom: 3px solid #00cec9;
-    color: #00cec9;
-}
-
-.admin-tab-btn:hover {
-    background: rgba(44, 62, 80, 0.8);
-}
-
-.admin-tab-content {
-    animation: fadeIn 0.3s ease;
-}
-
-.panel-switcher {
-    display: flex;
-    margin-top: 15px;
-    border-top: 2px solid #34495e;
-    padding-top: 10px;
-}
-
-.panel-switch-btn {
-    flex: 1;
-    padding: 8px;
-    background: rgba(44, 62, 80, 0.6);
-    border: none;
-    color: #dfe6e9;
-    cursor: pointer;
-    margin: 0 2px;
-    border-radius: 5px;
-    transition: all 0.3s ease;
-}
-
-.panel-switch-btn.active {
-    background: linear-gradient(90deg, #0984e3 0%, #00cec9 100%);
-    color: white;
-}
-
-.panel-switch-btn:hover:not(.active) {
-    background: rgba(44, 62, 80, 0.8);
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-        }
-        
-    .drawing-trajectory {
-        stroke-dasharray: 10, 10;
-        animation: dash 1s linear infinite;
-    }
-
-    .predicted-trajectory {
-        stroke-dasharray: 5, 5;
-    }
-
-    @keyframes dash {
-        to {
-            stroke-dashoffset: -20;
-        }
-    }
-
-    .target-info-window {
-        min-width: 250px;
-    }
-
-    .action-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        margin-top: 10px;
-    }
-
-    .action-button {
-        padding: 8px 12px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        transition: all 0.3s ease;
-    }
-
-    .action-button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-
-    .drawing-btn {
-        background: linear-gradient(90deg, #9b59b6 0%, #8e44ad 100%);
-        color: white;
-    }
-
-    .predict-btn {
-        background: linear-gradient(90deg, #f39c12 0%, #e67e22 100%);
-        color: white;
-    }
-
-    .edit-btn {
-        background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
-        color: white;
-    }
-
-    .delete-btn {
-        background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
-        color: white;
-    }
-
-    .course-btn {
-        background: linear-gradient(90deg, #1abc9c 0%, #16a085 100%);
-        color: white;
-    }
-    
-.trajectory-btn {
-    background: linear-gradient(90deg, #9b59b6 0%, #8e44ad 100%);
-    color: white;
-}
-
-.full-trajectory {
-    stroke-dasharray: none;
-}
-
-.persistent-predicted-trajectory {
-    stroke-dasharray: 8, 8;
-}
-
-.blink-marker {
-    animation: pulse 0.5s ease-in-out;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.2); }
-    100% { transform: scale(1); }
-}
-
-.complete-trajectory-btn {
-    background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
-    color: white;
-}
-
-.traveled-trajectory {
-    stroke-dasharray: none;
-}
-
-.complete-predicted-trajectory {
-    stroke-dasharray: 8, 8;
-}
-
-.prediction-end-marker {
-    animation: pulse 2s infinite;
-}
-
-.drawn-trajectory {
-    stroke-dasharray: 5, 5;
-}
+        /* UI UPDATE: All styles moved to external style.css for modern design system */
     </style>
 </head>
 <body>
@@ -1049,7 +113,8 @@
             </div>
         </div>
         <!-- ЗАМЕНИТЬ весь блок .panel на этот код -->
-<div class="panel" id="sidePanel">
+<!-- UI UPDATE: Panel starts collapsed, opened by FAB button -->
+<div class="panel collapsed" id="sidePanel">
     <!-- Панель пользователя -->
     <div class="panel-section user-panel" id="userPanel">
         <h2><i class="fas fa-users"></i>Для користувачів</h2>
@@ -2938,6 +2003,7 @@ function testGooglePlaces() {
 
 // ==================== Добавление цели на карту ====================
 // FIXED: Render popup content for a target (supports live updates)
+// UI UPDATE: Enhanced popup with modern icons and styling
 function renderMarkerPopupContent(target) {
     // FIXED: added createdAt and distance to popup
     const createdAt = target.createdAt || target.addedAt;
@@ -2951,14 +2017,23 @@ function renderMarkerPopupContent(target) {
         distanceDisplay = Math.round(distance) + ' м';
     }
     
+    // UI UPDATE: Get last update time
+    const lastUpdate = target.lastUpdate ? new Date(target.lastUpdate).toLocaleTimeString('uk-UA') : 'N/A';
+    
+    // UI UPDATE: Modern popup with FontAwesome icons
     return `
         <div class="target-info-window">
-            <h3 style="color:#00cec9;">${target.name || 'Невідома ціль'}</h3>
-            <p><strong>Тип:</strong> ${target.type}</p>
-            <p><strong>Швидкість:</strong> ${target.speed || 0} км/год</p>
-            <p><strong>Курс:</strong> ${target.course ? target.course.toFixed(1) : 0}°</p>
-            <p><strong>Додано:</strong> ${createdAtDisplay}</p>
-            <p><strong>Пройдено:</strong> ${distanceDisplay}</p>
+            <h4>
+                <i class="fas fa-crosshairs"></i>
+                <strong>${target.name || 'Невідома ціль'}</strong>
+            </h4>
+            <p><i class="fas fa-bullseye"></i><strong>Тип:</strong> ${target.type}</p>
+            <p><i class="fas fa-tachometer-alt"></i><strong>Швидкість:</strong> ${target.speed || 0} км/год</p>
+            <p><i class="fas fa-compass"></i><strong>Курс:</strong> ${target.course ? target.course.toFixed(1) : 0}°</p>
+            <p><i class="fas fa-ruler"></i><strong>Пройдено:</strong> ${distanceDisplay}</p>
+            <p><i class="fas fa-map-marker-alt"></i><strong>Координати:</strong> ${target.latitude.toFixed(4)}, ${target.longitude.toFixed(4)}</p>
+            <p><i class="fas fa-calendar-plus"></i><strong>Додано:</strong> ${createdAtDisplay}</p>
+            <p><i class="fas fa-clock"></i><strong>Оновлено:</strong> ${lastUpdate}</p>
             <div class="action-buttons">
                 <button class="action-button drawing-btn" 
                         onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
@@ -5146,6 +4221,11 @@ function addTargetToMap(target) {
     markers[target.id] = marker;
     
     addTrajectory(target);
+    
+    // UI UPDATE: Show notification for new target
+    if (window.UI && window.UI.notifications) {
+        window.UI.notifications.success(`Нова ціль додана: ${target.name}`, 3000);
+    }
 }
 
 // Функции показа/скрытия траектории
@@ -5542,6 +4622,7 @@ const __predictionDebounceMap = new Map();
 
 // FIXED: Public prediction function with visual-only guarantee, debouncing, and angle check
 // FIXED: Use targetHistory for real movement history display (item #4)
+// UI UPDATE: Enhanced with notification
 function showPredictedTrajectoryPublic(targetId) {
   const target = targets.find(t => t.id === targetId);
   if (!target) return;
@@ -5552,6 +4633,11 @@ function showPredictedTrajectoryPublic(targetId) {
   
   // FIXED: Also show the permanent trajectory line via addTrajectory for consistency
   addTrajectory(target);
+  
+  // UI UPDATE: Show notification
+  if (window.UI && window.UI.notifications) {
+      window.UI.notifications.info(`Траєкторія оновлена: ${target.name}`, 2500);
+  }
 }
 
 // updateMarkerRotation функция - ПОЛНАЯ ВЕРСИЯ С ПЛАВНЫМИ ПОВОРОТАМИ
@@ -5918,8 +5004,13 @@ function saveTargetEdit() {
 }
 
 // deleteTarget функция - ПОЛНАЯ ВЕРСИЯ С ОЧИСТКОЙ АНИМАЦИИ
+// UI UPDATE: Enhanced with notification
 function deleteTarget(targetId) {
     if (!isAdmin) return;
+    
+    // UI UPDATE: Get target name before deletion
+    const target = targets.find(t => t.id === targetId);
+    const targetName = target ? target.name : 'Ціль';
     
     if (!confirm('Ви впевнені, що хочете видалити цю ціль?')) return;
 
@@ -5963,6 +5054,11 @@ function deleteTarget(targetId) {
     saveTargets();
     updateStats();
     updateTargetsList();
+    
+    // UI UPDATE: Show notification
+    if (window.UI && window.UI.notifications) {
+        window.UI.notifications.warning(`Ціль видалено: ${targetName}`, 3000);
+    }
 }
 
 // clearAllTargets функция - ОБНОВИТЬ для сохранения истории
@@ -6445,15 +5541,36 @@ document.getElementById('importFile').addEventListener('change', function(event)
 });
 
 // Переключити панель
+// UI UPDATE: Enhanced togglePanel with modern UI integration
 function togglePanel() {
     const panel = document.getElementById('sidePanel');
-    panel.classList.toggle('collapsed');
     isPanelExpanded = !isPanelExpanded;
     
+    if (isPanelExpanded) {
+        panel.classList.remove('collapsed');
+        panel.classList.add('open');
+    } else {
+        panel.classList.remove('open');
+        panel.classList.add('collapsed');
+    }
+    
+    // Update header button
     const button = document.querySelector('.toggle-panel-btn');
-    button.innerHTML = isPanelExpanded ? 
-        '<i class="fas fa-eye-slash"></i><span>Сховати</span>' : 
-        '<i class="fas fa-eye"></i><span>Панель</span>';
+    if (button) {
+        button.innerHTML = isPanelExpanded ? 
+            '<i class="fas fa-eye-slash"></i><span>Сховати</span>' : 
+            '<i class="fas fa-eye"></i><span>Панель</span>';
+    }
+    
+    // UI UPDATE: Sync with FAB if it exists
+    if (window.UI && window.UI.fab) {
+        window.UI.fab.isOpen = isPanelExpanded;
+        if (window.UI.fab.button) {
+            window.UI.fab.button.innerHTML = isPanelExpanded ? 
+                '<i class="fas fa-times"></i>' : 
+                '<i class="fas fa-bars"></i>';
+        }
+    }
 }
 
 // Функции для управления панелями
@@ -7250,6 +6367,11 @@ POPUP:
                     // Check if this update is from another controller
                     const myId = localStorage.getItem('deviceId');
                     if (remoteData.controllerId && remoteData.controllerId !== myId) {
+                        // UI UPDATE: Check if course changed significantly for notification
+                        const oldCourse = localTarget.course || 0;
+                        const newCourse = remoteData.course || 0;
+                        const courseChanged = Math.abs(newCourse - oldCourse) > 15;
+                        
                         // Merge fields from remote data
                         localTarget.latitude = remoteData.latitude;
                         localTarget.longitude = remoteData.longitude;
@@ -7257,6 +6379,11 @@ POPUP:
                         localTarget.followingDrawnPath = remoteData.followingDrawnPath;
                         localTarget.currentTrajectoryPoint = remoteData.currentTrajectoryPoint || 1;
                         localTarget.controllerId = remoteData.controllerId;
+                        
+                        // UI UPDATE: Show notification if course changed
+                        if (courseChanged && window.UI && window.UI.notifications) {
+                            window.UI.notifications.warning(`Ціль ${localTarget.name} змінила курс на ${newCourse.toFixed(0)}°`, 2500);
+                        }
 
                         // Update drawn trajectory if present and valid
                         if (Array.isArray(remoteData.drawnTrajectory) && remoteData.drawnTrajectory.length > 1) {
