@@ -113,7 +113,8 @@
             </div>
         </div>
         <!-- ЗАМЕНИТЬ весь блок .panel на этот код -->
-<div class="panel" id="sidePanel">
+<!-- UI UPDATE: Panel starts collapsed, opened by FAB button -->
+<div class="panel collapsed" id="sidePanel">
     <!-- Панель пользователя -->
     <div class="panel-section user-panel" id="userPanel">
         <h2><i class="fas fa-users"></i>Для користувачів</h2>
@@ -2002,6 +2003,7 @@ function testGooglePlaces() {
 
 // ==================== Добавление цели на карту ====================
 // FIXED: Render popup content for a target (supports live updates)
+// UI UPDATE: Enhanced popup with modern icons and styling
 function renderMarkerPopupContent(target) {
     // FIXED: added createdAt and distance to popup
     const createdAt = target.createdAt || target.addedAt;
@@ -2015,14 +2017,23 @@ function renderMarkerPopupContent(target) {
         distanceDisplay = Math.round(distance) + ' м';
     }
     
+    // UI UPDATE: Get last update time
+    const lastUpdate = target.lastUpdate ? new Date(target.lastUpdate).toLocaleTimeString('uk-UA') : 'N/A';
+    
+    // UI UPDATE: Modern popup with FontAwesome icons
     return `
         <div class="target-info-window">
-            <h3 style="color:#00cec9;">${target.name || 'Невідома ціль'}</h3>
-            <p><strong>Тип:</strong> ${target.type}</p>
-            <p><strong>Швидкість:</strong> ${target.speed || 0} км/год</p>
-            <p><strong>Курс:</strong> ${target.course ? target.course.toFixed(1) : 0}°</p>
-            <p><strong>Додано:</strong> ${createdAtDisplay}</p>
-            <p><strong>Пройдено:</strong> ${distanceDisplay}</p>
+            <h4>
+                <i class="fas fa-crosshairs"></i>
+                <strong>${target.name || 'Невідома ціль'}</strong>
+            </h4>
+            <p><i class="fas fa-bullseye"></i><strong>Тип:</strong> ${target.type}</p>
+            <p><i class="fas fa-tachometer-alt"></i><strong>Швидкість:</strong> ${target.speed || 0} км/год</p>
+            <p><i class="fas fa-compass"></i><strong>Курс:</strong> ${target.course ? target.course.toFixed(1) : 0}°</p>
+            <p><i class="fas fa-ruler"></i><strong>Пройдено:</strong> ${distanceDisplay}</p>
+            <p><i class="fas fa-map-marker-alt"></i><strong>Координати:</strong> ${target.latitude.toFixed(4)}, ${target.longitude.toFixed(4)}</p>
+            <p><i class="fas fa-calendar-plus"></i><strong>Додано:</strong> ${createdAtDisplay}</p>
+            <p><i class="fas fa-clock"></i><strong>Оновлено:</strong> ${lastUpdate}</p>
             <div class="action-buttons">
                 <button class="action-button drawing-btn" 
                         onclick="event.stopPropagation(); window.__fdStart('${target.id}')">
@@ -5509,15 +5520,36 @@ document.getElementById('importFile').addEventListener('change', function(event)
 });
 
 // Переключити панель
+// UI UPDATE: Enhanced togglePanel with modern UI integration
 function togglePanel() {
     const panel = document.getElementById('sidePanel');
-    panel.classList.toggle('collapsed');
     isPanelExpanded = !isPanelExpanded;
     
+    if (isPanelExpanded) {
+        panel.classList.remove('collapsed');
+        panel.classList.add('open');
+    } else {
+        panel.classList.remove('open');
+        panel.classList.add('collapsed');
+    }
+    
+    // Update header button
     const button = document.querySelector('.toggle-panel-btn');
-    button.innerHTML = isPanelExpanded ? 
-        '<i class="fas fa-eye-slash"></i><span>Сховати</span>' : 
-        '<i class="fas fa-eye"></i><span>Панель</span>';
+    if (button) {
+        button.innerHTML = isPanelExpanded ? 
+            '<i class="fas fa-eye-slash"></i><span>Сховати</span>' : 
+            '<i class="fas fa-eye"></i><span>Панель</span>';
+    }
+    
+    // UI UPDATE: Sync with FAB if it exists
+    if (window.UI && window.UI.fab) {
+        window.UI.fab.isOpen = isPanelExpanded;
+        if (window.UI.fab.button) {
+            window.UI.fab.button.innerHTML = isPanelExpanded ? 
+                '<i class="fas fa-times"></i>' : 
+                '<i class="fas fa-bars"></i>';
+        }
+    }
 }
 
 // Функции для управления панелями
@@ -6314,6 +6346,11 @@ POPUP:
                     // Check if this update is from another controller
                     const myId = localStorage.getItem('deviceId');
                     if (remoteData.controllerId && remoteData.controllerId !== myId) {
+                        // UI UPDATE: Check if course changed significantly for notification
+                        const oldCourse = localTarget.course || 0;
+                        const newCourse = remoteData.course || 0;
+                        const courseChanged = Math.abs(newCourse - oldCourse) > 15;
+                        
                         // Merge fields from remote data
                         localTarget.latitude = remoteData.latitude;
                         localTarget.longitude = remoteData.longitude;
@@ -6321,6 +6358,11 @@ POPUP:
                         localTarget.followingDrawnPath = remoteData.followingDrawnPath;
                         localTarget.currentTrajectoryPoint = remoteData.currentTrajectoryPoint || 1;
                         localTarget.controllerId = remoteData.controllerId;
+                        
+                        // UI UPDATE: Show notification if course changed
+                        if (courseChanged && window.UI && window.UI.notifications) {
+                            window.UI.notifications.warning(`Ціль ${localTarget.name} змінила курс на ${newCourse.toFixed(0)}°`, 2500);
+                        }
 
                         // Update drawn trajectory if present and valid
                         if (Array.isArray(remoteData.drawnTrajectory) && remoteData.drawnTrajectory.length > 1) {
