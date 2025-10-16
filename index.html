@@ -413,6 +413,16 @@
             overflow: hidden;
         }
 
+        /* UI FIX: Show crosshair cursor when panel is expanded (default state) */
+        .leaflet-container {
+            cursor: crosshair !important;
+        }
+
+        /* UI FIX: Hide crosshair cursor when panel is collapsed */
+        body.panel-collapsed .leaflet-container {
+            cursor: default !important;
+        }
+
         /* UI UPDATE: Custom scrollbar */
         .panel::-webkit-scrollbar {
             width: 8px;
@@ -4179,6 +4189,8 @@ function setupEventListeners() {
             else if (deltaY < 0 && panel.classList.contains('collapsed')) {
                 e.preventDefault();
                 panel.classList.remove('collapsed');
+                // UI FIX: Remove body class when panel is expanded
+                document.body.classList.remove('panel-collapsed');
                 panel.style.height = '300px';
             }
         }, { passive: false });
@@ -6208,6 +6220,13 @@ function togglePanel() {
     const panel = document.getElementById('sidePanel');
     panel.classList.toggle('collapsed');
     isPanelExpanded = !isPanelExpanded;
+    
+    // UI FIX: Toggle body class to control crosshair cursor visibility
+    if (panel.classList.contains('collapsed')) {
+        document.body.classList.add('panel-collapsed');
+    } else {
+        document.body.classList.remove('panel-collapsed');
+    }
     
     const button = document.querySelector('.toggle-panel-btn');
     button.innerHTML = isPanelExpanded ? 
