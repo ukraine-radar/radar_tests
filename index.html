@@ -365,6 +365,17 @@
             box-shadow: 0 0 10px rgba(0, 188, 212, 0.3);
         }
 
+        /* UI FIX: MapTiler OMT option styling with dark neon/cyber-military theme */
+        .map-switcher select option {
+            background: rgba(13, 17, 23, 0.95);
+            color: var(--text);
+            padding: 8px;
+        }
+
+        .map-switcher select option:hover {
+            background: rgba(0, 188, 212, 0.2);
+        }
+
         /* UI UPDATE: Floating bottom panel with glass effect and mobile support */
         /* UI FIX: Enhanced panel with edge glow */
         .panel {
@@ -1990,11 +2001,13 @@
         <div id="map">
             <div class="crosshair"></div>
             <!-- В раздел map-switcher ДОБАВИТЬ выбор типа Google Maps -->
+            <!-- UI FIX: Added MapTiler OMT option to layer control -->
 <div class="map-switcher">
     <select id="mapStyleSelector" onchange="changeMapStyle()">
         <option value="dark">Темна карта</option>
         <option value="standard">Стандартна</option>
         <option value="satellite">Супутник</option>
+        <option value="maptiler_omt">MapTiler OMT</option>
         <option value="google">Google Maps</option>
     </select>
     <select id="googleTypeSelector" onchange="changeGoogleMapType(this.value)" style="display: none; margin-top: 5px;">
@@ -2419,6 +2432,29 @@ const iconConfig = {
         'ту-95мс': "icons/Tu-95MS.png",
         'борт прикриття': "icons/Su_35_google.png",
         'п/у шахедів': "icons/pusk_shahed_google.png",
+        'балістична ракета': "icons/iskander_raketa.png",
+        'калібр': "icons/Kalibr.png"
+    },
+    // UI FIX: MapTiler OMT icon configuration
+    'maptiler_omt': {
+        'дрон': "icons/shahed-red.png",
+        'ракета': "icons/raketa-red.png",
+        'винищувач': "icons/suchka-red.png",
+        'бомба': "icons/KAB-red.png",
+        'корабель': "icons/ship-red.png",
+        'вертоліт': "icons/vertolet.png",
+        'пускова установка': "icons/iskander.png",
+        'група бпла': "icons/group-red.png",
+        'розвідник': "icons/razvedka-orange.png",
+        'невідома ціль': "icons/nevidoma.png",
+        'гербера': "icons/gerbera_white.png",
+        'крилата ракета': "icons/raketa-red.png",
+        'невстановлений бпла': "icons/nevst_bpla.png",
+        'zala': "icons/zala.png",
+        'supercam': "icons/supercam.png",
+        'ту-95мс': "icons/Tu-95MS.png",
+        'борт прикриття': "icons/Su_35.png",
+        'п/у шахедів': "icons/pusk_shahed_white.png",
         'балістична ракета': "icons/iskander_raketa.png",
         'калібр': "icons/Kalibr.png"
     }
@@ -2983,7 +3019,8 @@ function initMap() {
         }
         
         // Очищаем контейнер карты
-        mapElement.innerHTML = '<div class="crosshair"></div><div class="map-switcher"><select id="mapStyleSelector" onchange="changeMapStyle()"><option value="dark">Темна карта</option><option value="standard">Стандартна</option><option value="satellite">Супутник</option><option value="google">Google Maps</option></select><select id="googleTypeSelector" onchange="changeGoogleMapType(this.value)" style="display: none; margin-top: 5px;"><option value="roadmap">Дороги</option><option value="satellite">Супутник</option><option value="hybrid">Гібрид</option></select></div>';
+        // UI FIX: Added MapTiler OMT option to layer selector
+        mapElement.innerHTML = '<div class="crosshair"></div><div class="map-switcher"><select id="mapStyleSelector" onchange="changeMapStyle()"><option value="dark">Темна карта</option><option value="standard">Стандартна</option><option value="satellite">Супутник</option><option value="maptiler_omt">MapTiler OMT</option><option value="google">Google Maps</option></select><select id="googleTypeSelector" onchange="changeGoogleMapType(this.value)" style="display: none; margin-top: 5px;"><option value="roadmap">Дороги</option><option value="satellite">Супутник</option><option value="hybrid">Гібрид</option></select></div>';
         
         map = L.map('map').setView([50.4500, 30.5233], 6);
 
@@ -3016,6 +3053,14 @@ function initMap() {
 
         // Создаем группу для спутниковой карты с названиями
         baseLayers.satellite = L.layerGroup([satelliteBase, satelliteLabels]);
+
+        // UI FIX: MapTiler OMT layer with key EoN5uNWLQfhItA9i4Gue
+        baseLayers.maptiler_omt = L.tileLayer('https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=EoN5uNWLQfhItA9i4Gue', {
+            attribution: '<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>',
+            maxZoom: 19,
+            tileSize: 512,
+            zoomOffset: -1
+        });
 
         // GOOGLE MAPS слои
         baseLayers.google_roadmap = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
@@ -3538,6 +3583,8 @@ function changeMapStyle() {
     if (baseLayers.dark && map.hasLayer(baseLayers.dark)) map.removeLayer(baseLayers.dark);
     if (baseLayers.standard && map.hasLayer(baseLayers.standard)) map.removeLayer(baseLayers.standard);
     if (baseLayers.satellite && map.hasLayer(baseLayers.satellite)) map.removeLayer(baseLayers.satellite);
+    // UI FIX: Remove MapTiler OMT layer if present
+    if (baseLayers.maptiler_omt && map.hasLayer(baseLayers.maptiler_omt)) map.removeLayer(baseLayers.maptiler_omt);
     if (baseLayers.google && map.hasLayer(baseLayers.google)) map.removeLayer(baseLayers.google);
     
     // Добавляем выбранный слой
@@ -3549,6 +3596,10 @@ function changeMapStyle() {
         isGoogleMaps = false;
     } else if (style === 'satellite' && baseLayers.satellite) {
         baseLayers.satellite.addTo(map);
+        isGoogleMaps = false;
+    // UI FIX: Add MapTiler OMT layer handling
+    } else if (style === 'maptiler_omt' && baseLayers.maptiler_omt) {
+        baseLayers.maptiler_omt.addTo(map);
         isGoogleMaps = false;
     } else if (style === 'google' && baseLayers.google) {
         baseLayers.google.addTo(map);
@@ -4519,6 +4570,8 @@ function changeMapStyle() {
     if (baseLayers.dark && map.hasLayer(baseLayers.dark)) map.removeLayer(baseLayers.dark);
     if (baseLayers.standard && map.hasLayer(baseLayers.standard)) map.removeLayer(baseLayers.standard);
     if (baseLayers.satellite && map.hasLayer(baseLayers.satellite)) map.removeLayer(baseLayers.satellite);
+    // UI FIX: Remove MapTiler OMT layer if present
+    if (baseLayers.maptiler_omt && map.hasLayer(baseLayers.maptiler_omt)) map.removeLayer(baseLayers.maptiler_omt);
     if (baseLayers.google && map.hasLayer(baseLayers.google)) map.removeLayer(baseLayers.google);
     
     // Добавляем выбранный слой
@@ -4530,6 +4583,10 @@ function changeMapStyle() {
         isGoogleMaps = false;
     } else if (style === 'satellite' && baseLayers.satellite) {
         baseLayers.satellite.addTo(map);
+        isGoogleMaps = false;
+    // UI FIX: Add MapTiler OMT layer handling
+    } else if (style === 'maptiler_omt' && baseLayers.maptiler_omt) {
+        baseLayers.maptiler_omt.addTo(map);
         isGoogleMaps = false;
     } else if (style === 'google' && baseLayers.google) {
         baseLayers.google.addTo(map);
