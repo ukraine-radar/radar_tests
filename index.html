@@ -2001,11 +2001,13 @@
         <div id="map">
             <div class="crosshair"></div>
             <!-- В раздел map-switcher ДОБАВИТЬ выбор типа Google Maps -->
+            <!-- UI FIX: Added MapTiler OMT option to layer control -->
 <div class="map-switcher">
     <select id="mapStyleSelector" onchange="changeMapStyle()">
         <option value="dark">Темна карта</option>
         <option value="standard">Стандартна</option>
         <option value="satellite">Супутник</option>
+        <option value="maptiler_omt">MapTiler OMT</option>
         <option value="google">Google Maps</option>
     </select>
     <select id="googleTypeSelector" onchange="changeGoogleMapType(this.value)" style="display: none; margin-top: 5px;">
