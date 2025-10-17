@@ -267,8 +267,7 @@
                     <span>Очистити вибір</span>
                 </button>
                 <button class="group-action-btn secondary" data-action="exit" aria-label="Вийти з режиму вибору">
-                    <i class="fas fa-times"></i>
-                    <span>Вийти</span>
+                    <span>Вийти ×</span>
                 </button>
             </div>
         `;
@@ -918,9 +917,32 @@
     /* ========== Public API ========== */
 
     /**
+     * Check if user is admin
+     * @returns {boolean} True if user is admin
+     */
+    function isUserAdmin() {
+        // Check multiple possible admin flags
+        if (window.isAdmin === true) return true;
+        if (window.auth && window.auth.isAdmin === true) return true;
+        if (window.currentUser && window.currentUser.role === 'admin') return true;
+        return false;
+    }
+
+    /**
      * Enable group selection mode
      */
     function enableGroupSelection() {
+        // Admin-only gating
+        if (!isUserAdmin()) {
+            // Try to use toast if available, otherwise use alert
+            if (typeof window.showToast === 'function') {
+                window.showToast('Доступ заборонено. Тільки адміністратори можуть використовувати цю функцію.', 'error');
+            } else {
+                alert('Доступ заборонено. Тільки адміністратори можуть використовувати цю функцію.');
+            }
+            return;
+        }
+        
         if (state.active) return;
         
         state.active = true;
@@ -1034,7 +1056,7 @@
      */
     function updateToggleButton(active) {
         if (!toggleButton) {
-            toggleButton = document.getElementById('toggleSelectionBtn');
+            toggleButton = document.getElementById('groupSelectionProBtn');
         }
         
         if (toggleButton) {
@@ -1055,14 +1077,34 @@
         console.log('Initializing Group Control System...');
         
         // Wire up toggle button if present
-        toggleButton = document.getElementById('toggleSelectionBtn');
+        toggleButton = document.getElementById('groupSelectionProBtn');
         if (toggleButton) {
             toggleButton.addEventListener('click', toggleGroupSelection);
             console.log('Toggle button wired');
+            
+            // Show/hide button based on admin status
+            if (!isUserAdmin()) {
+                toggleButton.style.display = 'none';
+            }
         }
     }
 
     /* ========== Export Public API ========== */
+
+    /**
+     * Refresh button bindings (useful when admin status changes)
+     */
+    function refreshBindings() {
+        toggleButton = document.getElementById('groupSelectionProBtn');
+        if (toggleButton) {
+            // Show/hide button based on admin status
+            if (!isUserAdmin()) {
+                toggleButton.style.display = 'none';
+            } else {
+                toggleButton.style.display = '';
+            }
+        }
+    }
 
     window.groupControl = {
         enableGroupSelection,
@@ -1072,6 +1114,7 @@
         deselectTarget,
         clearGroupSelection,
         applyGroupAction,
+        refreshBindings,
         init
     };
 

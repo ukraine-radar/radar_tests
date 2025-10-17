@@ -21,13 +21,16 @@
     <h1>Group Control System Test</h1>
     <div id="map"></div>
     
-    <button id="toggleSelectionBtn" class="test-btn">Toggle Selection Mode</button>
+    <button id="groupSelectionProBtn" class="test-btn">Toggle Selection Mode (Admin)</button>
     <button onclick="runTests()" class="test-btn">Run Tests</button>
     
     <div id="testResults"></div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Set admin flag for testing
+        window.isAdmin = true;
+        
         // Create a simple map with markers
         window.map = L.map('map').setView([50.4501, 30.5234], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
@@ -71,33 +74,47 @@
             let test2 = window.groupControlState ? '✓' : '✗';
             results.innerHTML += `<div class="test-result">${test2} State exists: ${!!window.groupControlState}</div>`;
             
-            // Test 3: Enable/disable
+            // Test 3: Admin gating (should work with admin flag)
             window.groupControl.enableGroupSelection();
             let test3 = window.groupControlState.active ? '✓' : '✗';
-            results.innerHTML += `<div class="test-result">${test3} Enable works: ${window.groupControlState.active}</div>`;
-            
-            // Test 4: Select target
-            window.groupControl.selectTarget('target-0');
-            let test4 = window.groupControlState.selected.has('target-0') ? '✓' : '✗';
-            results.innerHTML += `<div class="test-result">${test4} Select works: ${window.groupControlState.selected.has('target-0')}</div>`;
-            
-            // Test 5: Selection count
-            let test5 = window.groupControlState.selected.size === 1 ? '✓' : '✗';
-            results.innerHTML += `<div class="test-result">${test5} Count correct: ${window.groupControlState.selected.size}</div>`;
-            
-            // Test 6: Clear selection
-            window.groupControl.clearGroupSelection();
-            let test6 = window.groupControlState.selected.size === 0 ? '✓' : '✗';
-            results.innerHTML += `<div class="test-result">${test6} Clear works: ${window.groupControlState.selected.size === 0}</div>`;
-            
-            // Test 7: Disable
+            results.innerHTML += `<div class="test-result">${test3} Enable works (admin): ${window.groupControlState.active}</div>`;
             window.groupControl.disableGroupSelection();
-            let test7 = !window.groupControlState.active ? '✓' : '✗';
-            results.innerHTML += `<div class="test-result">${test7} Disable works: ${!window.groupControlState.active}</div>`;
+            
+            // Test 4: Non-admin gating (should block)
+            const originalIsAdmin = window.isAdmin;
+            window.isAdmin = false;
+            window.groupControl.enableGroupSelection();
+            let test4 = !window.groupControlState.active ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test4} Blocks non-admin: ${!window.groupControlState.active}</div>`;
+            window.isAdmin = originalIsAdmin;
+            
+            // Test 5: Enable and select target
+            window.groupControl.enableGroupSelection();
+            window.groupControl.selectTarget('target-0');
+            let test5 = window.groupControlState.selected.has('target-0') ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test5} Select works: ${window.groupControlState.selected.has('target-0')}</div>`;
+            
+            // Test 6: Selection count
+            let test6 = window.groupControlState.selected.size === 1 ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test6} Count correct: ${window.groupControlState.selected.size}</div>`;
+            
+            // Test 7: Clear selection
+            window.groupControl.clearGroupSelection();
+            let test7 = window.groupControlState.selected.size === 0 ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test7} Clear works: ${window.groupControlState.selected.size === 0}</div>`;
+            
+            // Test 8: Disable
+            window.groupControl.disableGroupSelection();
+            let test8 = !window.groupControlState.active ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test8} Disable works: ${!window.groupControlState.active}</div>`;
+            
+            // Test 9: refreshBindings exists
+            let test9 = typeof window.groupControl.refreshBindings === 'function' ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test9} refreshBindings exists: ${typeof window.groupControl.refreshBindings === 'function'}</div>`;
             
             // Summary
-            const passed = [test1, test2, test3, test4, test5, test6, test7].filter(t => t === '✓').length;
-            results.innerHTML += `<div class="test-result" style="background: ${passed === 7 ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255, 118, 117, 0.2)'}"><strong>PASSED: ${passed}/7 tests</strong></div>`;
+            const passed = [test1, test2, test3, test4, test5, test6, test7, test8, test9].filter(t => t === '✓').length;
+            results.innerHTML += `<div class="test-result" style="background: ${passed === 9 ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255, 118, 117, 0.2)'}"><strong>PASSED: ${passed}/9 tests</strong></div>`;
         }
     </script>
     <script src="groupControl.js"></script>

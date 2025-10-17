@@ -220,7 +220,7 @@
 /* ========== Toggle Button Pulse Effect ========== */
 
 /* Pulse effect for active selection toggle button */
-#toggleSelectionBtn.active {
+#groupSelectionProBtn.active {
     animation: togglePulse 2s ease-in-out infinite;
     border-color: var(--accent, #00bcd4);
     background: linear-gradient(135deg, rgba(0, 188, 212, 0.3), rgba(0, 188, 212, 0.2));
@@ -276,7 +276,7 @@
 
 /* Focus-visible styling for keyboard navigation */
 .group-action-btn:focus-visible,
-#toggleSelectionBtn:focus-visible {
+#groupSelectionProBtn:focus-visible {
     outline: 3px solid var(--accent, #00bcd4);
     outline-offset: 3px;
     box-shadow: 0 0 0 1px rgba(0, 188, 212, 0.5);
@@ -285,7 +285,7 @@
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
     .target-selected,
-    #toggleSelectionBtn.active,
+    #groupSelectionProBtn.active,
     .group-control-bar,
     .group-action-btn {
         animation-duration: 0.01ms !important;

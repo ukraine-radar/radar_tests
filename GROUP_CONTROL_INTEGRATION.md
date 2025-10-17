@@ -6,6 +6,7 @@ The Group Control System (Режим вибору цілей) is a professional,
 
 ## Features
 
+- **Admin-Only Access**: Only administrators can access and use the Group Control system
 - **Desktop Selection**: Click to toggle, Shift+drag for box selection
 - **Mobile Selection**: Tap to toggle, long-press to start drag
 - **Performant Rendering**: Handles 1000+ targets smoothly with rAF throttling
@@ -34,16 +35,16 @@ Add the following before your closing `</body>` tag, after your existing scripts
 
 ### 2. Optional: Add Toggle Button
 
-Add a toggle button to your UI to enable/disable group selection mode:
+Add a toggle button to your Admin UI panel to enable/disable group selection mode:
 
 ```html
-<button id="toggleSelectionBtn" class="header-btn">
+<button id="groupSelectionProBtn" class="btn btn-margin">
     <i class="fas fa-layer-group"></i>
-    <span>Вибір цілей</span>
+    <span>Режим вибору цілей (PRO)</span>
 </button>
 ```
 
-The module will automatically wire this button if it finds an element with id `toggleSelectionBtn`.
+The module will automatically wire this button if it finds an element with id `groupSelectionProBtn`. The button will only be visible to administrators and will be hidden for non-admin users.
 
 ## Public API
 
@@ -51,7 +52,7 @@ The module exposes a global `window.groupControl` object with the following meth
 
 ### `enableGroupSelection()`
 
-Enable group selection mode. Activates event listeners and shows the action bar.
+Enable group selection mode. Activates event listeners and shows the action bar. **Admin-only** - non-admin users will see an error toast/alert.
 
 ```javascript
 window.groupControl.enableGroupSelection();
@@ -67,7 +68,7 @@ window.groupControl.disableGroupSelection();
 
 ### `toggleGroupSelection()`
 
-Toggle group selection mode on/off.
+Toggle group selection mode on/off. **Admin-only** - non-admin users will see an error toast/alert.
 
 ```javascript
 window.groupControl.toggleGroupSelection();
@@ -105,6 +106,14 @@ Apply an action to all selected targets. Valid action types: `'course'`, `'speed
 window.groupControl.applyGroupAction('speed');
 ```
 
+### `refreshBindings()`
+
+Refresh button bindings and visibility based on current admin status. Call this after login/logout to update button visibility.
+
+```javascript
+window.groupControl.refreshBindings();
+```
+
 ## Global State
 
 Access the current state via `window.groupControlState`:
@@ -128,6 +137,23 @@ console.log('Selected IDs:', Array.from(window.groupControlState.selected));
 ```
 
 ## Behavior Summary
+
+### Admin-Only Access
+
+The Group Control system is **restricted to administrators only**. The system checks for admin status using:
+- `window.isAdmin === true`
+- `window.auth.isAdmin === true`
+- `window.currentUser.role === 'admin'`
+
+**Non-admin behavior:**
+- Toggle button is hidden from non-admin users
+- Attempting to call `enableGroupSelection()` or `toggleGroupSelection()` shows an error toast/alert
+- All group control features are inaccessible
+
+**Admin behavior:**
+- Toggle button is visible in the Admin panel
+- All group control features are fully accessible
+- Button visibility updates automatically when `refreshBindings()` is called after login/logout
 
 ### Desktop
 
@@ -367,6 +393,28 @@ document.addEventListener('DOMContentLoaded', () => {
         window.groupControl.enableGroupSelection();
     }, 1000);
 });
+```
+
+### Example 5: Update Button Visibility After Login
+
+```javascript
+// After successful admin login
+function onAdminLogin() {
+    window.isAdmin = true;
+    // ... other login logic
+    
+    // Refresh Group Control button visibility
+    window.groupControl.refreshBindings();
+}
+
+// After logout
+function onLogout() {
+    window.isAdmin = false;
+    // ... other logout logic
+    
+    // Refresh Group Control button visibility (will hide it)
+    window.groupControl.refreshBindings();
+}
 ```
 
 ## License
