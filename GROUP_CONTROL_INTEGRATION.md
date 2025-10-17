@@ -4,15 +4,20 @@
 
 The Group Control System (Режим вибору цілей) is a professional, modular solution for multi-target selection and management in the Leaflet + JS radar application. It provides desktop and mobile support with clean ES6 architecture, zero side-effects, and full accessibility.
 
+**🔒 Admin-Only Feature**: This module is restricted to administrators only. Non-admin users cannot enable the mode and will not see the toggle button.
+
 ## Features
 
+- **🔐 Admin-Only Access**: Feature is gated to administrators only
 - **Desktop Selection**: Click to toggle, Shift+drag for box selection
-- **Mobile Selection**: Tap to toggle, long-press to start drag
+- **Mobile Selection**: Tap to toggle, long-press (~0.45s) to start drag, nearest-marker hit-test (≈24px radius)
 - **Performant Rendering**: Handles 1000+ targets smoothly with rAF throttling
-- **Group Actions**: Course, Speed, Type, Delete, Clear, Exit
+- **Group Actions**: Course, Speed, Type, Delete, Clear
+- **Exit Behavior**: Prominent "Вийти ×" button immediately disables mode and closes menu
 - **Keyboard Support**: Esc to disable, Ctrl/Cmd+A to select all
 - **Accessibility**: ARIA labels, focus-visible styling, reduced motion support
 - **Responsive UI**: Adaptive bottom action bar with blur background
+- **Popup Suppression**: Prevents marker popups from opening during selection mode
 
 ## Installation
 
@@ -32,18 +37,23 @@ Add the following before your closing `</body>` tag, after your existing scripts
 <script src="groupControl.js"></script>
 ```
 
-### 2. Optional: Add Toggle Button
+### 2. Add Toggle Button to Admin Panel
 
-Add a toggle button to your UI to enable/disable group selection mode:
+Add a toggle button to your admin panel (must be admin-only section):
 
 ```html
-<button id="toggleSelectionBtn" class="header-btn">
-    <i class="fas fa-layer-group"></i>
-    <span>Вибір цілей</span>
+<button class="btn btn-margin admin-only" onclick="window.groupControl && window.groupControl.toggleGroupSelection()" id="toggleSelectionBtn" style="display: none;">
+    <i class="fas fa-layer-group"></i>Режим вибору цілей
 </button>
 ```
 
-The module will automatically wire this button if it finds an element with id `toggleSelectionBtn`.
+The button should:
+- Have the `admin-only` class
+- Be initially hidden with `style="display: none;"`
+- Use the groupControl API for toggling
+- Be placed in the admin panel section under the "Режим вибору цілей поганий" button
+
+The module will automatically show/hide the button based on admin status.
 
 ## Public API
 
@@ -97,12 +107,50 @@ Clear all selected targets.
 window.groupControl.clearGroupSelection();
 ```
 
-### `applyGroupAction(actionType)`
+### `refreshBindings()`
 
-Apply an action to all selected targets. Valid action types: `'course'`, `'speed'`, `'type'`, `'delete'`.
+Refresh event bindings to markers. Useful when markers are dynamically added/removed.
 
 ```javascript
-window.groupControl.applyGroupAction('speed');
+window.groupControl.refreshBindings();
+```
+
+## Admin Access Control
+
+The Group Control system is **admin-only**. The module checks for admin status in multiple ways:
+
+```javascript
+// Checked in order:
+1. window.isAdmin === true
+2. window.auth.isAdmin === true
+3. window.currentUser.role === 'admin'
+```
+
+### Admin Gating Behavior
+
+- **Non-admins**: 
+  - Toggle button is hidden
+  - Calling `enableGroupSelection()` shows error toast
+  - Cannot enable the mode programmatically
+  
+- **Admins**: 
+  - Toggle button is visible in admin panel
+  - Can enable/disable mode freely
+  - Automatic check every 2 seconds to update button visibility
+  
+- **Admin state changes**:
+  - If user loses admin access while mode is active, mode is automatically disabled
+  - Button visibility updates automatically
+
+### Testing Admin Access
+
+```javascript
+// Check if user is admin
+const isUserAdmin = window.isAdmin || 
+                    (window.auth && window.auth.isAdmin) || 
+                    (window.currentUser && window.currentUser.role === 'admin');
+
+console.log('User is admin:', isUserAdmin);
 ```
 
 ## Global State
@@ -139,8 +187,26 @@ console.log('Selected IDs:', Array.from(window.groupControlState.selected));
 ### Mobile
 
 1. **Tap marker**: Toggle selection
-2. **Long-press + drag**: Draw selection rectangle (600ms hold)
-3. **Vibration feedback** on long-press start (if supported)
+2. **Tap near marker**: Nearest-marker hit-test (≈24px radius) toggles selection
+3. **Long-press + drag**: Draw selection rectangle (~450ms hold)
+4. **Vibration feedback** on long-press start (if supported)
+
+### Popup Suppression
+
+When in selection mode:
+- Marker popups are completely suppressed
+- Clicks on markers only toggle selection
+- Any open popups are automatically closed
+- Normal popup behavior resumes after exiting selection mode
+
+### Exit Behavior
+
+The action bar includes a large, prominent **"Вийти ×"** button at the bottom:
+- Immediately disables selection mode
+- Clears all selections
+- Hides the action bar
+- Restores normal map interaction
+- Explicit exit action - no separate close/minimize
 
 ### Group Actions
 
@@ -151,7 +217,7 @@ When targets are selected, the action bar appears at the bottom with these actio
 - **Тип (Type)**: Prompt for type, apply to all selected
 - **Видалити (Delete)**: Confirm and delete all selected targets
 - **Очистити вибір (Clear Selection)**: Deselect all targets
-- **❌ Вийти (Exit)**: Exit selection mode
+- **❌ Вийти × (Exit)**: Exit selection mode and close menu
 
 ## Integration with Existing Hooks
 
@@ -246,7 +312,7 @@ Edit constants in `groupControl.js`:
 
 ```javascript
 const CONFIG = {
-    LONG_PRESS_DURATION: 600,   // ms for mobile long-press
+    LONG_PRESS_DURATION: 450,   // ms for mobile long-press (~0.45s)
     DRAG_THRESHOLD: 5,          // pixels before drag starts
     THROTTLE_INTERVAL: 16,      // ms (~60fps) for move events
     MIN_DRAG_SIZE: 10           // minimum drag box size

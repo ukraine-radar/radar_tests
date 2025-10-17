@@ -2140,9 +2140,9 @@
 </button>
 <!-- ↑↑↑ КОНЕЦ ДОБАВЛЕНИЯ ↑↑↑ -->
 
-<!-- ↓↓↓ ДОБАВИТЬ КНОПКУ РЕЖИМА ВЫБОРА ЦЕЛЕЙ ↓↓↓ -->
-<button class="btn btn-margin" onclick="toggleSelectionMode()" id="toggleSelectionBtn">
-    <i class="fas fa-mouse-pointer"></i>Режим вибору цілей поганий
+<!-- ↓↓↓ КНОПКА РЕЖИМА ГРУПОВОГО ВИБОРА ЦЕЛЕЙ (admin-only) ↓↓↓ -->
+<button class="btn btn-margin admin-only" onclick="window.groupControl && window.groupControl.toggleGroupSelection()" id="toggleSelectionBtn" style="display: none;">
+    <i class="fas fa-layer-group"></i>Режим вибору цілей
 </button>
 <!-- ↑↑↑ КОНЕЦ ДОБАВЛЕНИЯ ↑↑↑ -->
             </div>

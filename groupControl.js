@@ -34,7 +34,7 @@
     /* ========== Configuration ========== */
     
     const CONFIG = {
-        LONG_PRESS_DURATION: 600,         // ms for mobile long-press
+        LONG_PRESS_DURATION: 450,         // ms for mobile long-press (~0.45s)
         DRAG_THRESHOLD: 5,                // pixels before drag starts
         THROTTLE_INTERVAL: 16,            // ms (~60fps) for move events
         MIN_DRAG_SIZE: 10                 // minimum drag box size in pixels
@@ -47,6 +47,18 @@
     let toggleButton = null;
 
     /* ========== Utility Functions ========== */
+
+    /**
+     * Check if current user is admin
+     * @returns {boolean} True if admin
+     */
+    function isAdmin() {
+        // Check multiple possible admin flag locations
+        if (window.isAdmin === true) return true;
+        if (window.auth && window.auth.isAdmin === true) return true;
+        if (window.currentUser && window.currentUser.role === 'admin') return true;
+        return false;
+    }
 
     /**
      * Get all markers on the map
@@ -266,11 +278,11 @@
                     <i class="fas fa-eraser"></i>
                     <span>Очистити вибір</span>
                 </button>
-                <button class="group-action-btn secondary" data-action="exit" aria-label="Вийти з режиму вибору">
-                    <i class="fas fa-times"></i>
-                    <span>Вийти</span>
-                </button>
             </div>
+            <button class="group-exit-btn" data-action="exit" aria-label="Вийти з режиму вибору">
+                <i class="fas fa-times"></i>
+                <span>Вийти ×</span>
+            </button>
         `;
         
         document.body.appendChild(actionBar);
@@ -759,8 +771,16 @@
         // Prevent popup from opening in selection mode
         if (e.originalEvent) {
             e.originalEvent.stopPropagation();
+            e.originalEvent.preventDefault();
         }
         L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+        
+        // Close any open popups
+        const map = getMap();
+        if (map) {
+            map.closePopup();
+        }
         
         toggleTargetSelection(targetId);
     }
@@ -865,7 +885,50 @@
             hideDragBox();
             state.isDragging = false;
             state.dragStartPoint = null;
+        } else if (e.originalEvent && e.originalEvent.changedTouches && e.originalEvent.changedTouches.length > 0) {
+            // Tap without drag - check for nearest marker within hit radius
+            const touch = e.originalEvent.changedTouches[0];
+            const map = getMap();
+            if (map) {
+                const tapPoint = { x: touch.clientX, y: touch.clientY };
+                const nearestMarker = findNearestMarker(tapPoint, 24); // 24px hit radius
+                
+                if (nearestMarker) {
+                    toggleTargetSelection(nearestMarker.id);
+                }
+            }
         }
+    }
+
+    /**
+     * Find nearest marker within hit radius
+     * @param {Object} point - {x, y} in screen coordinates
+     * @param {number} radius - Hit radius in pixels
+     * @returns {Object|null} Nearest marker or null
+     */
+    function findNearestMarker(point, radius) {
+        const map = getMap();
+        if (!map) return null;
+        
+        const markers = getAllMarkers();
+        let nearest = null;
+        let nearestDist = radius;
+        
+        markers.forEach(m => {
+            if (!m.marker) return;
+            
+            const markerPoint = map.latLngToContainerPoint(m.latlng);
+            const dx = markerPoint.x - point.x;
+            const dy = markerPoint.y - point.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < nearestDist) {
+                nearest = m;
+                nearestDist = dist;
+            }
+        });
+        
+        return nearest;
     }
 
     /**
@@ -921,6 +984,12 @@
      * Enable group selection mode
      */
     function enableGroupSelection() {
+        // Admin-only gating
+        if (!isAdmin()) {
+            showNotification('Доступ заборонено. Тільки адміністратори можуть використовувати режим вибору цілей.', 'error');
+            return;
+        }
+        
         if (state.active) return;
         
         state.active = true;
@@ -1046,6 +1115,36 @@
         }
     }
 
+    /**
+     * Refresh bindings - re-attach event listeners to markers
+     * Useful after markers are added/removed dynamically
+     */
+    function refreshBindings() {
+        if (!state.active) return;
+        
+        console.log('Refreshing group control bindings...');
+        
+        // Re-attach click listeners to all markers
+        const markers = getAllMarkers();
+        markers.forEach(m => {
+            if (m.marker) {
+                // Remove old listener if any
+                m.marker.off('click');
+                
+                // Add new listener
+                m.marker.on('click', (e) => handleMarkerClick(e, m.id));
+                
+                // Add hover class
+                const element = m.marker.getElement();
+                if (element) {
+                    element.classList.add('group-hover');
+                }
+            }
+        });
+        
+        console.log(`Refreshed bindings for ${markers.length} markers`);
+    }
+
     /* ========== Initialization ========== */
 
     /**
@@ -1059,7 +1158,35 @@
         if (toggleButton) {
             toggleButton.addEventListener('click', toggleGroupSelection);
             console.log('Toggle button wired');
+            
+            // Show button only for admins
+            if (isAdmin()) {
+                toggleButton.style.display = 'block';
+            } else {
+                toggleButton.style.display = 'none';
+            }
         }
+        
+        // Listen for admin state changes to update button visibility
+        const checkAdminInterval = setInterval(() => {
+            if (toggleButton) {
+                const shouldShow = isAdmin();
+                const currentDisplay = toggleButton.style.display;
+                
+                if (shouldShow && currentDisplay === 'none') {
+                    toggleButton.style.display = 'block';
+                    console.log('Group Control button shown for admin');
+                } else if (!shouldShow && currentDisplay !== 'none') {
+                    toggleButton.style.display = 'none';
+                    console.log('Group Control button hidden for non-admin');
+                    
+                    // Disable mode if user lost admin access
+                    if (state.active) {
+                        disableGroupSelection();
+                    }
+                }
+            }
+        }, 2000); // Check every 2 seconds
     }
 
     /* ========== Export Public API ========== */
@@ -1072,6 +1199,7 @@
         deselectTarget,
         clearGroupSelection,
         applyGroupAction,
+        refreshBindings,
         init
     };
 

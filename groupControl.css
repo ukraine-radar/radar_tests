@@ -134,7 +134,71 @@
     gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
+    margin-bottom: 12px;
 }
+
+/* Exit button - large, prominent, full-width at bottom */
+.group-exit-btn {
+    background: linear-gradient(135deg, rgba(255, 118, 117, 0.3), rgba(255, 118, 117, 0.2));
+    border: 2px solid rgba(255, 118, 117, 0.5);
+    color: var(--error, #ff7675);
+    padding: 14px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 16px;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    min-height: 50px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.group-exit-btn i {
+    font-size: 20px;
+    filter: drop-shadow(0 0 6px currentColor);
+}
+
+.group-exit-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 118, 117, 0.4);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.group-exit-btn:hover::before {
+    width: 400px;
+    height: 400px;
+}
+
+.group-exit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(255, 118, 117, 0.6);
+    border-color: var(--error, #ff7675);
+}
+
+.group-exit-btn:active {
+    transform: translateY(0);
+}
+
+.group-exit-btn:focus-visible {
+    outline: 2px solid var(--error, #ff7675);
+    outline-offset: 2px;
+}
+
 
 /* Action buttons */
 .group-action-btn {
