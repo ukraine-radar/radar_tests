@@ -267,8 +267,7 @@
                     <span>Очистити вибір</span>
                 </button>
                 <button class="group-action-btn secondary" data-action="exit" aria-label="Вийти з режиму вибору">
-                    <i class="fas fa-times"></i>
-                    <span>Вийти</span>
+                    <span>Вийти ×</span>
                 </button>
             </div>
         `;
