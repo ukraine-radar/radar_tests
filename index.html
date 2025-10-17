@@ -1404,21 +1404,51 @@
 }
 /* ↑↑↑ КОНЕЦ СТИЛЕЙ ДЛЯ МОБИЛЬНОГО ВЫБОРА ЦЕЛЕЙ ↑↑↑ */
 
-            /* UI UPDATE: Group actions panel with glass effect */
+            /* UI UPDATE: Group actions panel with glass effect at bottom of screen */
 .group-actions-panel {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    bottom: 0;
+    left: 0;
+    right: 0;
     background: var(--panel);
     backdrop-filter: blur(20px);
-    border: 2px solid var(--accent);
-    border-radius: var(--radius);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 2px solid var(--accent);
     padding: 20px;
-    z-index: 10000;
-    box-shadow: var(--shadow);
-    min-width: 320px;
-    animation: scaleIn 0.3s ease;
+    z-index: 1500;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5), 0 -2px 20px rgba(0, 188, 212, 0.15);
+    animation: slideUpPanel 0.3s ease;
+    display: none;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.group-actions-panel.visible {
+    display: block;
+}
+
+@keyframes slideUpPanel {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* UI UPDATE: Swipe indicator for mobile */
+.group-actions-panel::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: rgba(0, 188, 212, 0.5);
+    border-radius: 2px;
 }
 
 .group-panel-header {
@@ -1426,15 +1456,19 @@
     margin-bottom: 15px;
     border-bottom: 2px solid rgba(0, 188, 212, 0.3);
     padding-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .group-panel-header h3 {
     color: var(--accent);
-    margin: 0 0 8px 0;
+    margin: 0;
     font-size: 18px;
     font-weight: 600;
     font-family: 'Orbitron', sans-serif;
     letter-spacing: 0.5px;
+    text-shadow: 0 0 8px rgba(0, 188, 212, 0.4);
 }
 
 #selectedCount {
@@ -1442,10 +1476,138 @@
     font-size: 14px;
 }
 
-.group-actions-buttons {
+.group-panel-close {
+    background: transparent;
+    border: none;
+    color: var(--error);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.group-panel-close:hover {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 8px var(--error));
+}
+
+.group-actions-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
+    margin-bottom: 15px;
+}
+
+.group-action-btn {
+    background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(0, 188, 212, 0.1));
+    border: 2px solid rgba(0, 188, 212, 0.4);
+    color: var(--accent);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    position: relative;
+    overflow: hidden;
+    min-height: 44px;
+}
+
+.group-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glow) rgba(0, 188, 212, 0.5);
+    border-color: var(--accent);
+}
+
+.group-action-btn.btn-danger {
+    background: linear-gradient(135deg, rgba(255, 118, 117, 0.2), rgba(255, 118, 117, 0.1));
+    border-color: rgba(255, 118, 117, 0.4);
+    color: var(--error);
+}
+
+.group-action-btn.btn-danger:hover {
+    border-color: var(--error);
+    box-shadow: var(--glow) rgba(255, 118, 117, 0.5);
+}
+
+/* UI UPDATE: Neon highlighting for selected targets */
+.selected-target-marker {
+    filter: drop-shadow(0 0 15px var(--accent)) drop-shadow(0 0 25px var(--accent)) !important;
+    animation: pulse-selected 1.5s ease-in-out infinite;
+    z-index: 1000 !important;
+}
+
+@keyframes pulse-selected {
+    0%, 100% {
+        filter: drop-shadow(0 0 15px var(--accent)) drop-shadow(0 0 25px var(--accent));
+    }
+    50% {
+        filter: drop-shadow(0 0 25px var(--accent)) drop-shadow(0 0 35px var(--accent));
+    }
+}
+
+/* UI UPDATE: Selection box styling */
+.selection-box {
+    position: absolute;
+    border: 2px dashed var(--accent);
+    background: rgba(0, 188, 212, 0.1);
+    box-shadow: 0 0 20px rgba(0, 188, 212, 0.3);
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* UI UPDATE: Group edit forms */
+.group-edit-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px solid rgba(0, 188, 212, 0.3);
+}
+
+.group-edit-section h4 {
+    color: var(--accent);
+    margin-bottom: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.group-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+/* Mobile optimization for group panel */
+@media (max-width: 768px) {
+    .group-actions-panel {
+        max-height: 80vh;
+        padding: 15px 10px;
+    }
+    
+    .group-actions-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .group-action-btn {
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+    
+    .group-edit-grid {
+        grid-template-columns: 1fr;
+    }
+}
 }
 
 /* UI UPDATE: Group action buttons */
@@ -2950,6 +3112,9 @@ function forceFirebaseInit() {
         updateStatus();
         startAutoSave();
         updateUIForUserRole();
+        
+        // Инициализация системы группового управления
+        initGroupManagement();
         
         startAnimationLoop();
         
@@ -5489,6 +5654,11 @@ function addTargetToMap(target) {
     
     markers[target.id] = marker;
 
+    // Обработчик для группового выделения
+    marker.on('click', function(e) {
+        handleMarkerClick(target.id, e);
+    });
+
     marker.on('popupopen', function() {
         pausedTargets.add(target.id);
     });
@@ -6676,6 +6846,675 @@ window.cancelCourseSelection = cancelCourseSelection;
 window.setTargetCourseFromMap = setTargetCourseFromMap;
 window.performSearch = performSearch;
 window.changeMapStyle = changeMapStyle;
+
+// ============================================================================
+// GROUP TARGET MANAGEMENT SYSTEM
+// ============================================================================
+/**
+ * Система группового управления целями на карте Leaflet
+ * 
+ * Функции:
+ * - Групповое выделение целей: клик, Shift+клик, выделение рамкой
+ * - Long press для мобильных устройств
+ * - Панель управления группой с эффектом стекла
+ * - Массовое изменение параметров: скорость, курс, тип
+ * - Удаление группы целей
+ * - Неоновая подсветка выделенных целей с пульсацией
+ * - Мобильная адаптация с крупными кнопками
+ * - Свайп вниз для закрытия панели на мобильных
+ */
+
+// Состояние группового выделения (используем существующие переменные)
+// let selectedTargets = new Set(); // Уже объявлено выше
+let isShiftPressed = false; // Зажата ли клавиша Shift
+let isBoxSelectionMode = false; // Режим выделения рамкой
+let boxSelectionStart = null; // Начальная точка рамки
+let selectionBox = null; // DOM элемент рамки выделения
+let longPressTimer = null; // Таймер для long press
+let touchStartPos = null; // Позиция начала касания
+
+// Панель управления группой
+let groupActionsPanel = null;
+
+/**
+ * Инициализация системы группового управления
+ * Вызывается из initApp()
+ */
+function initGroupManagement() {
+    console.log('Инициализация системы группового управления');
+    
+    // Создаем панель управления группой
+    createGroupActionsPanel();
+    
+    // Отслеживание нажатия Shift
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Shift') {
+            isShiftPressed = true;
+        }
+        
+        // Ctrl+A - выбрать все цели
+        if (e.ctrlKey && e.key === 'a') {
+            e.preventDefault();
+            selectAllTargets();
+        }
+        
+        // Escape - снять выделение
+        if (e.key === 'Escape') {
+            clearSelection();
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'Shift') {
+            isShiftPressed = false;
+        }
+    });
+    
+    // Обработчики для box selection на карте
+    map.on('mousedown', handleSelectionBoxStart);
+    map.on('mousemove', handleSelectionBoxMove);
+    map.on('mouseup', handleSelectionBoxEnd);
+    
+    // Обработчики для мобильных устройств
+    map.on('touchstart', handleTouchStart);
+    map.on('touchmove', handleTouchMove);
+    map.on('touchend', handleTouchEnd);
+    
+    // Обработка кликов по маркерам для выделения
+    setupMarkerSelectionHandlers();
+    
+    console.log('Система группового управления инициализирована');
+}
+
+/**
+ * Создание панели управления группой
+ */
+function createGroupActionsPanel() {
+    const panelHTML = `
+    <div id="groupActionsPanel" class="group-actions-panel">
+        <div class="group-panel-header">
+            <h3><i class="fas fa-layer-group"></i> Групове управління</h3>
+            <span id="selectedCount">Обрано: 0</span>
+            <button class="group-panel-close" onclick="clearSelection()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="group-actions-buttons">
+            <button class="group-action-btn" onclick="changeGroupSpeed()">
+                <i class="fas fa-tachometer-alt"></i>
+                Змінити швидкість
+            </button>
+            <button class="group-action-btn" onclick="changeGroupCourse()">
+                <i class="fas fa-compass"></i>
+                Змінити курс
+            </button>
+            <button class="group-action-btn" onclick="changeGroupType()">
+                <i class="fas fa-tag"></i>
+                Змінити тип
+            </button>
+            <button class="group-action-btn btn-danger" onclick="deleteGroupTargets()">
+                <i class="fas fa-trash"></i>
+                Видалити групу
+            </button>
+        </div>
+        
+        <div class="group-edit-section" id="groupEditSection" style="display: none;">
+            <h4 id="groupEditTitle"></h4>
+            <div id="groupEditContent"></div>
+        </div>
+    </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', panelHTML);
+    groupActionsPanel = document.getElementById('groupActionsPanel');
+    
+    // Обработка свайпа вниз для закрытия панели на мобильных
+    let touchStartY = 0;
+    groupActionsPanel.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+    });
+    
+    groupActionsPanel.addEventListener('touchmove', (e) => {
+        const touchY = e.touches[0].clientY;
+        const deltaY = touchY - touchStartY;
+        
+        // Если свайп вниз больше 100px, закрываем панель
+        if (deltaY > 100) {
+            clearSelection();
+        }
+    });
+}
+
+/**
+ * Обработка начала выделения рамкой
+ */
+function handleSelectionBoxStart(e) {
+    // Только если зажат Shift и не в режиме админа
+    if (!isShiftPressed || !isAdmin) return;
+    
+    // Игнорируем если клик по маркеру
+    if (e.originalEvent.target.closest('.leaflet-marker-icon')) return;
+    
+    isBoxSelectionMode = true;
+    boxSelectionStart = {
+        x: e.containerPoint.x,
+        y: e.containerPoint.y,
+        latlng: e.latlng
+    };
+    
+    // Создаем элемент рамки
+    if (!selectionBox) {
+        selectionBox = document.createElement('div');
+        selectionBox.className = 'selection-box';
+        map.getContainer().appendChild(selectionBox);
+    }
+    
+    selectionBox.style.left = boxSelectionStart.x + 'px';
+    selectionBox.style.top = boxSelectionStart.y + 'px';
+    selectionBox.style.width = '0px';
+    selectionBox.style.height = '0px';
+    selectionBox.style.display = 'block';
+}
+
+/**
+ * Обработка движения при выделении рамкой
+ */
+function handleSelectionBoxMove(e) {
+    if (!isBoxSelectionMode || !selectionBox) return;
+    
+    const currentX = e.containerPoint.x;
+    const currentY = e.containerPoint.y;
+    
+    const left = Math.min(boxSelectionStart.x, currentX);
+    const top = Math.min(boxSelectionStart.y, currentY);
+    const width = Math.abs(currentX - boxSelectionStart.x);
+    const height = Math.abs(currentY - boxSelectionStart.y);
+    
+    selectionBox.style.left = left + 'px';
+    selectionBox.style.top = top + 'px';
+    selectionBox.style.width = width + 'px';
+    selectionBox.style.height = height + 'px';
+}
+
+/**
+ * Обработка окончания выделения рамкой
+ */
+function handleSelectionBoxEnd(e) {
+    if (!isBoxSelectionMode) return;
+    
+    isBoxSelectionMode = false;
+    
+    if (selectionBox) {
+        const bounds = selectionBox.getBoundingClientRect();
+        const mapContainer = map.getContainer().getBoundingClientRect();
+        
+        // Преобразуем координаты рамки в географические границы
+        const topLeft = map.containerPointToLatLng([
+            bounds.left - mapContainer.left,
+            bounds.top - mapContainer.top
+        ]);
+        const bottomRight = map.containerPointToLatLng([
+            bounds.right - mapContainer.left,
+            bounds.bottom - mapContainer.top
+        ]);
+        
+        const selectionBounds = L.latLngBounds(topLeft, bottomRight);
+        
+        // Выбираем все цели в границах
+        targets.forEach(target => {
+            if (deletedTargets.has(target.id)) return;
+            
+            const targetLatLng = L.latLng(target.latitude, target.longitude);
+            if (selectionBounds.contains(targetLatLng)) {
+                selectTarget(target.id);
+            }
+        });
+        
+        // Удаляем рамку
+        selectionBox.style.display = 'none';
+    }
+    
+    updateGroupPanel();
+}
+
+/**
+ * Обработка touch start для long press
+ */
+function handleTouchStart(e) {
+    touchStartPos = e.latlng;
+    
+    // Запускаем таймер для long press (500ms)
+    longPressTimer = setTimeout(() => {
+        // Проверяем, есть ли маркер в этой точке
+        const clickPoint = map.latLngToContainerPoint(touchStartPos);
+        const target = findTargetAtPoint(clickPoint);
+        
+        if (target) {
+            // Toggle выделение
+            if (selectedTargets.has(target.id)) {
+                deselectTarget(target.id);
+            } else {
+                selectTarget(target.id);
+            }
+            updateGroupPanel();
+            
+            // Вибрация для обратной связи (если поддерживается)
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+    }, 500);
+}
+
+/**
+ * Обработка touch move - отменяем long press при движении
+ */
+function handleTouchMove(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
+
+/**
+ * Обработка touch end
+ */
+function handleTouchEnd(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
+
+/**
+ * Найти цель в заданной точке
+ */
+function findTargetAtPoint(point) {
+    let closestTarget = null;
+    let minDistance = 40; // Радиус поиска в пикселях
+    
+    targets.forEach(target => {
+        if (deletedTargets.has(target.id)) return;
+        if (!markers[target.id]) return;
+        
+        const markerPoint = map.latLngToContainerPoint(
+            markers[target.id].getLatLng()
+        );
+        
+        const distance = Math.sqrt(
+            Math.pow(point.x - markerPoint.x, 2) +
+            Math.pow(point.y - markerPoint.y, 2)
+        );
+        
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestTarget = target;
+        }
+    });
+    
+    return closestTarget;
+}
+
+/**
+ * Настройка обработчиков выделения для маркеров
+ */
+function setupMarkerSelectionHandlers() {
+    // Вызывается при добавлении нового маркера
+    // Интегрируется в addTargetToMap
+}
+
+/**
+ * Обработка клика по маркеру для выделения
+ */
+function handleMarkerClick(targetId, e) {
+    if (!isAdmin) return;
+    
+    // Если зажат Shift или уже есть выделенные цели - добавляем к выделению
+    if (isShiftPressed || selectedTargets.size > 0) {
+        e.originalEvent.stopPropagation();
+        
+        if (selectedTargets.has(targetId)) {
+            deselectTarget(targetId);
+        } else {
+            selectTarget(targetId);
+        }
+        
+        updateGroupPanel();
+    }
+}
+
+/**
+ * Выделить цель
+ */
+function selectTarget(targetId) {
+    if (!markers[targetId]) return;
+    
+    selectedTargets.add(targetId);
+    
+    // Добавляем класс выделения к маркеру
+    const markerElement = markers[targetId].getElement();
+    if (markerElement) {
+        markerElement.classList.add('selected-target-marker');
+    }
+}
+
+/**
+ * Снять выделение с цели
+ */
+function deselectTarget(targetId) {
+    selectedTargets.delete(targetId);
+    
+    // Убираем класс выделения
+    if (markers[targetId]) {
+        const markerElement = markers[targetId].getElement();
+        if (markerElement) {
+            markerElement.classList.remove('selected-target-marker');
+        }
+    }
+}
+
+/**
+ * Выбрать все цели
+ */
+function selectAllTargets() {
+    if (!isAdmin) return;
+    
+    targets.forEach(target => {
+        if (!deletedTargets.has(target.id)) {
+            selectTarget(target.id);
+        }
+    });
+    
+    updateGroupPanel();
+}
+
+/**
+ * Снять все выделения
+ */
+function clearSelection() {
+    selectedTargets.forEach(targetId => {
+        deselectTarget(targetId);
+    });
+    selectedTargets.clear();
+    
+    // Скрываем панель
+    if (groupActionsPanel) {
+        groupActionsPanel.classList.remove('visible');
+    }
+    
+    // Скрываем секцию редактирования
+    const editSection = document.getElementById('groupEditSection');
+    if (editSection) {
+        editSection.style.display = 'none';
+    }
+}
+
+/**
+ * Обновить панель управления группой
+ */
+function updateGroupPanel() {
+    const count = selectedTargets.size;
+    
+    // Обновляем счетчик
+    const countElement = document.getElementById('selectedCount');
+    if (countElement) {
+        countElement.textContent = `Обрано: ${count}`;
+    }
+    
+    // Показываем/скрываем панель
+    if (groupActionsPanel) {
+        if (count > 0) {
+            groupActionsPanel.classList.add('visible');
+        } else {
+            groupActionsPanel.classList.remove('visible');
+        }
+    }
+    
+    // Скрываем секцию редактирования при изменении выделения
+    const editSection = document.getElementById('groupEditSection');
+    if (editSection) {
+        editSection.style.display = 'none';
+    }
+}
+
+/**
+ * Изменить скорость группы целей
+ */
+function changeGroupSpeed() {
+    if (!isAdmin || selectedTargets.size === 0) return;
+    
+    const editSection = document.getElementById('groupEditSection');
+    const editTitle = document.getElementById('groupEditTitle');
+    const editContent = document.getElementById('groupEditContent');
+    
+    editTitle.innerHTML = '<i class="fas fa-tachometer-alt"></i> Змінити швидкість';
+    editContent.innerHTML = `
+        <div class="form-group">
+            <label for="groupSpeed">Нова швидкість (км/год):</label>
+            <input type="number" id="groupSpeed" class="form-control" 
+                   min="0" max="30000" value="150" placeholder="Введіть швидкість">
+        </div>
+        <div class="modal-buttons" style="margin-top: 10px;">
+            <button class="btn" onclick="applyGroupSpeed()">
+                <i class="fas fa-check"></i> Застосувати
+            </button>
+            <button class="btn btn-secondary" onclick="hideGroupEditSection()">
+                <i class="fas fa-times"></i> Скасувати
+            </button>
+        </div>
+    `;
+    
+    editSection.style.display = 'block';
+    document.getElementById('groupSpeed').focus();
+}
+
+/**
+ * Применить новую скорость к группе
+ */
+function applyGroupSpeed() {
+    const speedInput = document.getElementById('groupSpeed');
+    const newSpeed = parseInt(speedInput.value);
+    
+    if (isNaN(newSpeed) || newSpeed < 0 || newSpeed > 30000) {
+        alert('Введіть коректну швидкість (0-30000 км/год)');
+        return;
+    }
+    
+    selectedTargets.forEach(targetId => {
+        const target = targets.find(t => t.id === targetId);
+        if (target) {
+            target.speed = newSpeed;
+            target.updatedAt = Date.now();
+            locallyModifiedTargets.add(targetId);
+        }
+    });
+    
+    saveTargets();
+    updateStats();
+    updateTargetsList();
+    hideGroupEditSection();
+    
+    console.log(`Швидкість змінено для ${selectedTargets.size} цілей`);
+}
+
+/**
+ * Изменить курс группы целей
+ */
+function changeGroupCourse() {
+    if (!isAdmin || selectedTargets.size === 0) return;
+    
+    const editSection = document.getElementById('groupEditSection');
+    const editTitle = document.getElementById('groupEditTitle');
+    const editContent = document.getElementById('groupEditContent');
+    
+    editTitle.innerHTML = '<i class="fas fa-compass"></i> Змінити курс';
+    editContent.innerHTML = `
+        <div class="form-group">
+            <label for="groupCourse">Новий курс (0-359°):</label>
+            <input type="number" id="groupCourse" class="form-control" 
+                   min="0" max="359" value="0" placeholder="Введіть курс">
+        </div>
+        <div class="modal-buttons" style="margin-top: 10px;">
+            <button class="btn" onclick="applyGroupCourse()">
+                <i class="fas fa-check"></i> Застосувати
+            </button>
+            <button class="btn btn-secondary" onclick="hideGroupEditSection()">
+                <i class="fas fa-times"></i> Скасувати
+            </button>
+        </div>
+    `;
+    
+    editSection.style.display = 'block';
+    document.getElementById('groupCourse').focus();
+}
+
+/**
+ * Применить новый курс к группе
+ */
+function applyGroupCourse() {
+    const courseInput = document.getElementById('groupCourse');
+    const newCourse = parseInt(courseInput.value);
+    
+    if (isNaN(newCourse) || newCourse < 0 || newCourse > 359) {
+        alert('Введіть коректний курс (0-359°)');
+        return;
+    }
+    
+    selectedTargets.forEach(targetId => {
+        const target = targets.find(t => t.id === targetId);
+        if (target) {
+            target.course = newCourse;
+            target.updatedAt = Date.now();
+            locallyModifiedTargets.add(targetId);
+            updateMarkerRotation(target);
+        }
+    });
+    
+    saveTargets();
+    updateStats();
+    updateTargetsList();
+    hideGroupEditSection();
+    
+    console.log(`Курс змінено для ${selectedTargets.size} цілей`);
+}
+
+/**
+ * Изменить тип группы целей
+ */
+function changeGroupType() {
+    if (!isAdmin || selectedTargets.size === 0) return;
+    
+    const editSection = document.getElementById('groupEditSection');
+    const editTitle = document.getElementById('groupEditTitle');
+    const editContent = document.getElementById('groupEditContent');
+    
+    // Генерируем список типов
+    const typeOptions = Object.keys(targetTypes).map(typeKey => 
+        `<option value="${typeKey}">${targetTypes[typeKey].name}</option>`
+    ).join('');
+    
+    editTitle.innerHTML = '<i class="fas fa-tag"></i> Змінити тип';
+    editContent.innerHTML = `
+        <div class="form-group">
+            <label for="groupType">Новий тип цілі:</label>
+            <select id="groupType" class="form-control">
+                ${typeOptions}
+            </select>
+        </div>
+        <div class="modal-buttons" style="margin-top: 10px;">
+            <button class="btn" onclick="applyGroupType()">
+                <i class="fas fa-check"></i> Застосувати
+            </button>
+            <button class="btn btn-secondary" onclick="hideGroupEditSection()">
+                <i class="fas fa-times"></i> Скасувати
+            </button>
+        </div>
+    `;
+    
+    editSection.style.display = 'block';
+}
+
+/**
+ * Применить новый тип к группе
+ */
+function applyGroupType() {
+    const typeSelect = document.getElementById('groupType');
+    const newType = typeSelect.value;
+    
+    selectedTargets.forEach(targetId => {
+        const target = targets.find(t => t.id === targetId);
+        if (target) {
+            target.type = newType;
+            target.updatedAt = Date.now();
+            locallyModifiedTargets.add(targetId);
+            
+            // Обновляем иконку маркера
+            if (markers[targetId]) {
+                const newIcon = getIconForType(newType, target.course);
+                markers[targetId].setIcon(newIcon);
+            }
+        }
+    });
+    
+    saveTargets();
+    updateStats();
+    updateTargetsList();
+    hideGroupEditSection();
+    
+    console.log(`Тип змінено для ${selectedTargets.size} цілей`);
+}
+
+/**
+ * Удалить группу целей
+ */
+function deleteGroupTargets() {
+    if (!isAdmin || selectedTargets.size === 0) return;
+    
+    if (!confirm(`Ви впевнені, що хочете видалити ${selectedTargets.size} цілей?`)) {
+        return;
+    }
+    
+    const targetIdsToDelete = Array.from(selectedTargets);
+    
+    targetIdsToDelete.forEach(targetId => {
+        deleteTarget(targetId);
+    });
+    
+    clearSelection();
+    
+    console.log(`Видалено ${targetIdsToDelete.length} цілей`);
+}
+
+/**
+ * Скрыть секцию редактирования группы
+ */
+function hideGroupEditSection() {
+    const editSection = document.getElementById('groupEditSection');
+    if (editSection) {
+        editSection.style.display = 'none';
+    }
+}
+
+// Экспортируем функции в глобальную область
+window.initGroupManagement = initGroupManagement;
+window.selectTarget = selectTarget;
+window.deselectTarget = deselectTarget;
+window.clearSelection = clearSelection;
+window.selectAllTargets = selectAllTargets;
+window.handleMarkerClick = handleMarkerClick;
+window.changeGroupSpeed = changeGroupSpeed;
+window.changeGroupCourse = changeGroupCourse;
+window.changeGroupType = changeGroupType;
+window.deleteGroupTargets = deleteGroupTargets;
+window.applyGroupSpeed = applyGroupSpeed;
+window.applyGroupCourse = applyGroupCourse;
+window.applyGroupType = applyGroupType;
+window.hideGroupEditSection = hideGroupEditSection;
+
+// ============================================================================
+// КОНЕЦ СИСТЕМЫ ГРУППОВОГО УПРАВЛЕНИЯ
+// ============================================================================
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
