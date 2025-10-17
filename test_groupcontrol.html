@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Group Control Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="groupControl.css">
+    <style>
+        :root {
+            --accent: #00bcd4;
+            --error: #ff7675;
+            --text: #e0e0e0;
+            --text-dim: #b0b0b0;
+        }
+        body { margin: 0; padding: 20px; font-family: Arial; background: #0d1117; color: #e0e0e0; }
+        #map { height: 500px; width: 100%; margin-bottom: 20px; }
+        .test-btn { padding: 10px; margin: 5px; background: #00bcd4; border: none; color: white; cursor: pointer; }
+        .test-result { padding: 10px; margin: 10px 0; background: rgba(0, 188, 212, 0.1); border: 1px solid #00bcd4; }
+    </style>
+</head>
+<body>
+    <h1>Group Control System Test</h1>
+    <div id="map"></div>
+    
+    <button id="toggleSelectionBtn" class="test-btn">Toggle Selection Mode</button>
+    <button onclick="runTests()" class="test-btn">Run Tests</button>
+    
+    <div id="testResults"></div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Create a simple map with markers
+        window.map = L.map('map').setView([50.4501, 30.5234], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
+        
+        // Create test targets and markers
+        window.targets = [];
+        window.markers = {};
+        
+        // Add 5 test markers
+        for (let i = 0; i < 5; i++) {
+            const lat = 50 + Math.random() * 5;
+            const lng = 30 + Math.random() * 5;
+            const target = {
+                id: 'target-' + i,
+                name: 'Test Target ' + i,
+                type: 'test',
+                speed: 100 + Math.random() * 400,
+                course: Math.random() * 360,
+                latitude: lat,
+                longitude: lng,
+                distance: 0,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            window.targets.push(target);
+            
+            const marker = L.marker([lat, lng]).addTo(window.map);
+            marker.bindPopup('Target ' + i);
+            window.markers[target.id] = marker;
+        }
+        
+        function runTests() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<h2>Test Results:</h2>';
+            
+            // Test 1: API exists
+            let test1 = window.groupControl ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test1} API exists: ${!!window.groupControl}</div>`;
+            
+            // Test 2: State exists
+            let test2 = window.groupControlState ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test2} State exists: ${!!window.groupControlState}</div>`;
+            
+            // Test 3: Enable/disable
+            window.groupControl.enableGroupSelection();
+            let test3 = window.groupControlState.active ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test3} Enable works: ${window.groupControlState.active}</div>`;
+            
+            // Test 4: Select target
+            window.groupControl.selectTarget('target-0');
+            let test4 = window.groupControlState.selected.has('target-0') ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test4} Select works: ${window.groupControlState.selected.has('target-0')}</div>`;
+            
+            // Test 5: Selection count
+            let test5 = window.groupControlState.selected.size === 1 ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test5} Count correct: ${window.groupControlState.selected.size}</div>`;
+            
+            // Test 6: Clear selection
+            window.groupControl.clearGroupSelection();
+            let test6 = window.groupControlState.selected.size === 0 ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test6} Clear works: ${window.groupControlState.selected.size === 0}</div>`;
+            
+            // Test 7: Disable
+            window.groupControl.disableGroupSelection();
+            let test7 = !window.groupControlState.active ? '✓' : '✗';
+            results.innerHTML += `<div class="test-result">${test7} Disable works: ${!window.groupControlState.active}</div>`;
+            
+            // Summary
+            const passed = [test1, test2, test3, test4, test5, test6, test7].filter(t => t === '✓').length;
+            results.innerHTML += `<div class="test-result" style="background: ${passed === 7 ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255, 118, 117, 0.2)'}"><strong>PASSED: ${passed}/7 tests</strong></div>`;
+        }
+    </script>
+    <script src="groupControl.js"></script>
+</body>
+</html>
