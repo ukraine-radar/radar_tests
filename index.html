@@ -17,6 +17,9 @@
       crossorigin="anonymous" referrerpolicy="no-referrer"/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.contextmenu@1.4.0/dist/leaflet.contextmenu.css" 
       crossorigin="anonymous"/>
+    
+    <!-- Group Control System Styles -->
+    <link rel="stylesheet" href="groupControl.css">
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -1985,6 +1988,9 @@
         </div>
 
         <div class="header-controls">
+            <button id="toggleSelectionBtn" class="header-btn" title="Режим вибору цілей">
+                <i class="fas fa-layer-group"></i><span>Вибір цілей</span>
+            </button>
             <button class="header-btn toggle-panel-btn" onclick="togglePanel()">
                 <i class="fas fa-eye-slash"></i><span>Панель</span>
             </button>
@@ -6682,5 +6688,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initApp();
 });
 </script>
+
+<!-- Group Control System Module -->
+<script src="groupControl.js"></script>
+
 </body>
 </html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Group Control Simple Test</title>
+    <style>
+        :root {
+            --accent: #00bcd4;
+            --error: #ff7675;
+            --text: #e0e0e0;
+            --text-dim: #b0b0b0;
+        }
+        body { margin: 0; padding: 20px; font-family: Arial; background: #0d1117; color: #e0e0e0; }
+        .test-btn { padding: 10px; margin: 5px; background: #00bcd4; border: none; color: white; cursor: pointer; }
+        .test-result { padding: 10px; margin: 10px 0; background: rgba(0, 188, 212, 0.1); border: 1px solid #00bcd4; }
+        #status { padding: 20px; margin: 20px 0; background: rgba(0, 188, 212, 0.2); border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Group Control System - Simple Test</h1>
+    
+    <div id="status">
+        <h2>Status:</h2>
+        <div id="statusContent">Initializing...</div>
+    </div>
+    
+    <button onclick="runTests()" class="test-btn">Run Tests</button>
+    <button onclick="testAPI()" class="test-btn">Test API</button>
+    
+    <div id="testResults"></div>
+    
+    <script>
+        // Mock minimal Leaflet-like structure
+        window.L = {
+            DomEvent: {
+                stopPropagation: function(e) {}
+            }
+        };
+        
+        // Mock map
+        window.map = {
+            _events: {},
+            on: function(event, handler) {
+                this._events[event] = this._events[event] || [];
+                this._events[event].push(handler);
+            },
+            off: function(event, handler) {
+                if (this._events[event]) {
+                    if (handler) {
+                        this._events[event] = this._events[event].filter(h => h !== handler);
+                    } else {
+                        this._events[event] = [];
+                    }
+                }
+            },
+            once: function(event, handler) {
+                const self = this;
+                const wrapped = function(e) {
+                    handler(e);
+                    self.off(event, wrapped);
+                };
+                this.on(event, wrapped);
+            },
+            latLngToContainerPoint: function(latlng) {
+                return { x: latlng.lat * 10, y: latlng.lng * 10 };
+            }
+        };
+        
+        // Mock targets and markers
+        window.targets = [
+            { id: 'test-1', name: 'Target 1', type: 'test', speed: 100, course: 45, latitude: 50, longitude: 30, createdAt: Date.now(), updatedAt: Date.now() },
+            { id: 'test-2', name: 'Target 2', type: 'test', speed: 200, course: 90, latitude: 51, longitude: 31, createdAt: Date.now(), updatedAt: Date.now() },
+            { id: 'test-3', name: 'Target 3', type: 'test', speed: 300, course: 135, latitude: 52, longitude: 32, createdAt: Date.now(), updatedAt: Date.now() }
+        ];
+        
+        window.markers = {};
+        window.targets.forEach(t => {
+            window.markers[t.id] = {
+                _latlng: { lat: t.latitude, lng: t.longitude },
+                _events: {},
+                getLatLng: function() { return this._latlng; },
+                getElement: function() { 
+                    const el = document.createElement('div');
+                    el.className = 'marker';
+                    return el;
+                },
+                on: function(event, handler) {
+                    this._events[event] = this._events[event] || [];
+                    this._events[event].push(handler);
+                },
+                off: function(event, handler) {
+                    if (this._events[event]) {
+                        if (handler) {
+                            this._events[event] = this._events[event].filter(h => h !== handler);
+                        } else {
+                            this._events[event] = [];
+                        }
+                    }
+                }
+            };
+        });
+        
+        function updateStatus() {
+            const status = document.getElementById('statusContent');
+            if (!window.groupControl || !window.groupControlState) {
+                status.innerHTML = '<span style="color: #ff7675;">✗ Module not loaded</span>';
+                return;
+            }
+            
+            const state = window.groupControlState;
+            status.innerHTML = `
+                <div>✓ Module loaded</div>
+                <div>Active: ${state.active ? '<span style="color: #2ecc71;">Yes</span>' : '<span style="color: #b0b0b0;">No</span>'}</div>
+                <div>Selected: ${state.selected.size} targets</div>
+                <div>Selected IDs: ${Array.from(state.selected).join(', ') || 'none'}</div>
+            `;
+        }
+        
+        function runTests() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<h2>Test Results:</h2>';
+            
+            const tests = [];
+            
+            // Test 1: API exists
+            const test1 = !!window.groupControl;
+            tests.push(test1);
+            results.innerHTML += `<div class="test-result">${test1 ? '✓' : '✗'} API exists</div>`;
+            
+            // Test 2: State exists
+            const test2 = !!window.groupControlState;
+            tests.push(test2);
+            results.innerHTML += `<div class="test-result">${test2 ? '✓' : '✗'} State exists</div>`;
+            
+            if (!test1 || !test2) {
+                results.innerHTML += '<div class="test-result" style="background: rgba(255, 118, 117, 0.2);"><strong>Module not loaded - stopping tests</strong></div>';
+                return;
+            }
+            
+            // Test 3: Enable selection
+            window.groupControl.enableGroupSelection();
+            const test3 = window.groupControlState.active === true;
+            tests.push(test3);
+            results.innerHTML += `<div class="test-result">${test3 ? '✓' : '✗'} Enable works (active=${window.groupControlState.active})</div>`;
+            
+            // Test 4: Select target
+            window.groupControl.selectTarget('test-1');
+            const test4 = window.groupControlState.selected.has('test-1');
+            tests.push(test4);
+            results.innerHTML += `<div class="test-result">${test4 ? '✓' : '✗'} Select target works</div>`;
+            
+            // Test 5: Select multiple targets
+            window.groupControl.selectTarget('test-2');
+            window.groupControl.selectTarget('test-3');
+            const test5 = window.groupControlState.selected.size === 3;
+            tests.push(test5);
+            results.innerHTML += `<div class="test-result">${test5 ? '✓' : '✗'} Multiple selection works (count=${window.groupControlState.selected.size})</div>`;
+            
+            // Test 6: Deselect target
+            window.groupControl.deselectTarget('test-2');
+            const test6 = !window.groupControlState.selected.has('test-2') && window.groupControlState.selected.size === 2;
+            tests.push(test6);
+            results.innerHTML += `<div class="test-result">${test6 ? '✓' : '✗'} Deselect works</div>`;
+            
+            // Test 7: Clear selection
+            window.groupControl.clearGroupSelection();
+            const test7 = window.groupControlState.selected.size === 0;
+            tests.push(test7);
+            results.innerHTML += `<div class="test-result">${test7 ? '✓' : '✗'} Clear selection works</div>`;
+            
+            // Test 8: Disable selection
+            window.groupControl.disableGroupSelection();
+            const test8 = window.groupControlState.active === false;
+            tests.push(test8);
+            results.innerHTML += `<div class="test-result">${test8 ? '✓' : '✗'} Disable works (active=${window.groupControlState.active})</div>`;
+            
+            // Summary
+            const passed = tests.filter(t => t).length;
+            const total = tests.length;
+            const allPassed = passed === total;
+            results.innerHTML += `<div class="test-result" style="background: ${allPassed ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255, 118, 117, 0.2)'}; border-color: ${allPassed ? '#2ecc71' : '#ff7675'}"><strong>RESULT: ${passed}/${total} tests passed</strong></div>`;
+            
+            updateStatus();
+        }
+        
+        function testAPI() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<h2>API Methods:</h2>';
+            
+            if (!window.groupControl) {
+                results.innerHTML += '<div class="test-result" style="background: rgba(255, 118, 117, 0.2);">Module not loaded</div>';
+                return;
+            }
+            
+            const methods = [
+                'enableGroupSelection',
+                'disableGroupSelection',
+                'toggleGroupSelection',
+                'selectTarget',
+                'deselectTarget',
+                'clearGroupSelection',
+                'applyGroupAction',
+                'init'
+            ];
+            
+            methods.forEach(method => {
+                const exists = typeof window.groupControl[method] === 'function';
+                results.innerHTML += `<div class="test-result">${exists ? '✓' : '✗'} ${method}</div>`;
+            });
+        }
+        
+        // Update status when page loads
+        setTimeout(updateStatus, 100);
+    </script>
+    <script src="groupControl.js"></script>
+    <script>
+        // Update status after module loads
+        setTimeout(updateStatus, 200);
+    </script>
+</body>
+</html>

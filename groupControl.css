@@ -1,0 +1,368 @@
+/**
+ * Group Control System - Stylesheet
+ * Professional, modular styles for multi-target selection and management
+ * Supports desktop and mobile, accessibility, and smooth animations
+ */
+
+/* ========== Selection Highlight ========== */
+
+/* Target selection highlight with smooth transitions */
+.target-selected {
+    filter: drop-shadow(0 0 15px var(--accent, #00bcd4)) !important;
+    animation: pulse-selected 1.5s ease-in-out infinite;
+    transition: filter 0.3s ease;
+}
+
+@keyframes pulse-selected {
+    0%, 100% {
+        filter: drop-shadow(0 0 15px var(--accent, #00bcd4));
+    }
+    50% {
+        filter: drop-shadow(0 0 25px var(--accent, #00bcd4));
+    }
+}
+
+/* Optional hover accent for selection mode */
+.group-hover {
+    cursor: pointer;
+    transition: filter 0.2s ease;
+}
+
+.group-hover:hover {
+    filter: drop-shadow(0 0 10px rgba(0, 188, 212, 0.5));
+}
+
+/* ========== Drag Selection Box ========== */
+
+/* Performant absolute div for drag selection rectangle */
+.drag-selection-box {
+    position: absolute;
+    border: 2px solid rgba(0, 188, 212, 0.8);
+    background: rgba(0, 188, 212, 0.15);
+    pointer-events: none;
+    z-index: 999;
+    box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
+    border-radius: 4px;
+    transition: opacity 0.2s ease;
+}
+
+/* ========== Group Control Action Bar ========== */
+
+/* Fixed bottom action bar with blur background */
+.group-control-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(20, 25, 35, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 2px solid var(--accent, #00bcd4);
+    padding: 12px 15px;
+    z-index: 1500;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5), 0 -2px 20px rgba(0, 188, 212, 0.15);
+    display: none; /* Hidden by default, shown when selection is active */
+    animation: slideUpBar 0.3s ease;
+    role: toolbar;
+}
+
+@keyframes slideUpBar {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.group-control-bar.active {
+    display: block;
+}
+
+/* Top glow line for action bar */
+.group-control-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #00bcd4), transparent);
+    box-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
+}
+
+/* Action bar header */
+.group-control-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0, 188, 212, 0.3);
+}
+
+.group-control-title {
+    color: var(--accent, #00bcd4);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 8px rgba(0, 188, 212, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.group-control-title i {
+    filter: drop-shadow(0 0 8px var(--accent, #00bcd4));
+}
+
+.group-selection-count {
+    color: var(--text, #e0e0e0);
+    font-size: 14px;
+    padding: 4px 12px;
+    background: rgba(0, 188, 212, 0.15);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 188, 212, 0.3);
+}
+
+/* Action buttons container */
+.group-actions-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* Action buttons */
+.group-action-btn {
+    background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(0, 188, 212, 0.1));
+    border: 2px solid rgba(0, 188, 212, 0.4);
+    color: var(--accent, #00bcd4);
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+    min-height: 44px; /* Touch-friendly */
+}
+
+.group-action-btn i {
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+.group-action-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(0, 188, 212, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.group-action-btn:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.group-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px rgba(0, 188, 212, 0.5);
+    border-color: var(--accent, #00bcd4);
+}
+
+.group-action-btn:active {
+    transform: translateY(0);
+}
+
+.group-action-btn:focus-visible {
+    outline: 2px solid var(--accent, #00bcd4);
+    outline-offset: 2px;
+}
+
+/* Danger variant for delete action */
+.group-action-btn.danger {
+    background: linear-gradient(135deg, rgba(255, 118, 117, 0.2), rgba(255, 118, 117, 0.1));
+    border-color: rgba(255, 118, 117, 0.4);
+    color: var(--error, #ff7675);
+}
+
+.group-action-btn.danger:hover {
+    border-color: var(--error, #ff7675);
+    box-shadow: 0 0 20px rgba(255, 118, 117, 0.5);
+}
+
+/* Secondary variant for exit/clear actions */
+.group-action-btn.secondary {
+    background: linear-gradient(135deg, rgba(176, 176, 176, 0.2), rgba(176, 176, 176, 0.1));
+    border-color: rgba(176, 176, 176, 0.4);
+    color: var(--text-dim, #b0b0b0);
+}
+
+.group-action-btn.secondary:hover {
+    border-color: var(--text-dim, #b0b0b0);
+    box-shadow: 0 0 20px rgba(176, 176, 176, 0.3);
+}
+
+/* ========== Toggle Button Pulse Effect ========== */
+
+/* Pulse effect for active selection toggle button */
+#toggleSelectionBtn.active {
+    animation: togglePulse 2s ease-in-out infinite;
+    border-color: var(--accent, #00bcd4);
+    background: linear-gradient(135deg, rgba(0, 188, 212, 0.3), rgba(0, 188, 212, 0.2));
+}
+
+@keyframes togglePulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(0, 188, 212, 0.8);
+    }
+}
+
+/* ========== Responsive Mobile Styles ========== */
+
+@media (max-width: 768px) {
+    .group-control-bar {
+        padding: 10px;
+    }
+    
+    .group-control-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .group-actions-buttons {
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .group-action-btn {
+        flex: 1;
+        min-width: 80px;
+        padding: 12px 10px;
+        font-size: 13px;
+        justify-content: center;
+    }
+    
+    .group-action-btn span {
+        display: none; /* Hide text on very small screens, show only icons */
+    }
+}
+
+@media (min-width: 769px) {
+    .group-action-btn span {
+        display: inline;
+    }
+}
+
+/* ========== Accessibility ========== */
+
+/* Focus-visible styling for keyboard navigation */
+.group-action-btn:focus-visible,
+#toggleSelectionBtn:focus-visible {
+    outline: 3px solid var(--accent, #00bcd4);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 1px rgba(0, 188, 212, 0.5);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .target-selected,
+    #toggleSelectionBtn.active,
+    .group-control-bar,
+    .group-action-btn {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ========== Touch Feedback for Mobile ========== */
+
+@media (hover: none) and (pointer: coarse) {
+    .group-action-btn:active {
+        animation: ripple 0.6s ease-out;
+    }
+
+    @keyframes ripple {
+        0% {
+            box-shadow: 0 0 0 0 rgba(0, 188, 212, 0.7);
+        }
+        100% {
+            box-shadow: 0 0 0 20px rgba(0, 188, 212, 0);
+        }
+    }
+}
+
+/* ========== Long-press indicator for mobile drag ========== */
+
+.long-press-indicator {
+    position: absolute;
+    pointer-events: none;
+    z-index: 1000;
+    width: 60px;
+    height: 60px;
+    border: 3px solid rgba(0, 188, 212, 0.5);
+    border-radius: 50%;
+    background: rgba(0, 188, 212, 0.1);
+    animation: longPressGrow 0.6s ease-out;
+}
+
+@keyframes longPressGrow {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ========== Utility Classes ========== */
+
+/* Hide elements when not in selection mode */
+.group-control-hidden {
+    display: none !important;
+}
+
+/* Prevent text selection during drag */
+.no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .target-selected {
+        filter: drop-shadow(0 0 20px #ffffff) !important;
+    }
+    
+    .drag-selection-box {
+        border-width: 3px;
+        border-color: #ffffff;
+    }
+    
+    .group-control-bar {
+        border-top-width: 3px;
+    }
+}
