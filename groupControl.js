@@ -1230,5 +1230,115 @@
   } else {
     document.addEventListener('DOMContentLoaded', tryInit);
   }
+
+  // ========== Блок для удаления лишней кнопки и админ-гейта ==========
+
+// --- Проверка, является ли пользователь админом ---
+function isAdmin() {
+    try {
+        if (window.isAdmin === true) return true;
+        if (window.auth?.isAdmin === true) return true;
+        if (window.currentUser?.role === 'admin') return true;
+    } catch (_) {}
+    return false;
+}
+
+// --- Удаление верхней (title) кнопки, если она есть ---
+function removeHeaderToggle() {
+    let btn = document.getElementById('toggleSelectionBtn');
+    if (btn && btn.parentElement) btn.parentElement.removeChild(btn);
+
+    const allBtns = Array.from(document.querySelectorAll('button'));
+    allBtns.forEach(b => {
+        if ((b.textContent || '').trim() === 'Вибір цілей') {
+            if (b.parentElement) b.parentElement.removeChild(b);
+        }
+    });
+}
+
+// --- Создать новую кнопку только в админ-панели ---
+function mountAdminToggleButton() {
+    removeHeaderToggle(); // удалить верхнюю кнопку
+
+    const panel =
+        document.querySelector('#adminPanel') ||
+        document.querySelector('.panel-section.admin') ||
+        document.querySelector('[data-panel="admin"]') ||
+        document.querySelector('.panel-section');
+    if (!panel) return;
+
+    const anchor = Array.from(panel.querySelectorAll('button')).find(
+        b => (b.textContent || '').trim().includes('Режим вибору цілей поганий')
+    );
+
+    let btn = document.getElementById('groupSelectionProBtn');
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'groupSelectionProBtn';
+        btn.type = 'button';
+        btn.className = 'btn btn-margin';
+        btn.textContent = 'Груповий вибір цілей';
+        btn.onclick = () => window.groupControl && window.groupControl.toggleGroupSelection();
+        btn.addEventListener('touchend', e => {
+            e.preventDefault();
+            window.groupControl && window.groupControl.toggleGroupSelection();
+        }, { passive: false });
+    }
+
+    if (anchor?.parentElement) anchor.insertAdjacentElement('afterend', btn);
+    else panel.appendChild(btn);
+
+    const updateButtonState = () => {
+        const admin = isAdmin();
+        btn.disabled = !admin;
+        btn.style.opacity = admin ? '1' : '0.6';
+        btn.style.pointerEvents = admin ? 'auto' : 'none';
+        btn.title = admin ? '' : 'Лише адміністратори можуть використовувати режим вибору цілей';
+    };
+
+    updateButtonState();
+
+    window.addEventListener('user-login', updateButtonState);
+    window.addEventListener('user-logout', updateButtonState);
+    setInterval(updateButtonState, 2000); // fallback polling
+}
+
+// --- Патч функции enableGroupSelection для проверки админа ---
+function patchEnableGroupSelection() {
+    if (!window.groupControl) return;
+    const origEnable = window.groupControl.enableGroupSelection;
+    window.groupControl.enableGroupSelection = function () {
+        if (!isAdmin()) {
+            if (typeof window.showToast === 'function') {
+                window.showToast('Лише адміністратори можуть використовувати режим вибору цілей', 'error');
+            } else {
+                alert('Лише адміністратори можуть використовувати режим вибору цілей');
+            }
+            return;
+        }
+        return origEnable.apply(this, arguments);
+    };
+}
+
+// --- Ждать появления window.groupControl, потом запускать патчи и вставлять кнопку ---
+function waitForGroupControl(cb) {
+    let tries = 0;
+    function check() {
+        if (window.groupControl && typeof window.groupControl.toggleGroupSelection === 'function') {
+            cb();
+        } else if (tries < 40) { // ждем до 10 секунд (40*250мс)
+            tries++;
+            setTimeout(check, 250);
+        }
+    }
+    check();
+}
+
+waitForGroupControl(function() {
+    mountAdminToggleButton();
+    patchEnableGroupSelection();
+});
+
+// ========== конец блока ==========
     
 })();
