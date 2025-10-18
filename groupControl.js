@@ -49,6 +49,18 @@
     /* ========== Utility Functions ========== */
 
     /**
+     * Check if current user is admin
+     * @returns {boolean} True if user has admin privileges
+     */
+    function isAdmin() {
+        // Check multiple possible admin flags
+        if (window.isAdmin === true) return true;
+        if (window.auth && window.auth.isAdmin === true) return true;
+        if (window.currentUser && window.currentUser.role === 'admin') return true;
+        return false;
+    }
+
+    /**
      * Get all markers on the map
      * @returns {Array} Array of {id, marker, latlng} objects
      */
@@ -268,7 +280,7 @@
                 </button>
                 <button class="group-action-btn secondary" data-action="exit" aria-label="Вийти з режиму вибору">
                     <i class="fas fa-times"></i>
-                    <span>Вийти</span>
+                    <span>Вийти ×</span>
                 </button>
             </div>
         `;
@@ -921,6 +933,13 @@
      * Enable group selection mode
      */
     function enableGroupSelection() {
+        // Admin-only check
+        if (!isAdmin()) {
+            showNotification('Лише адміністратори можуть використовувати режим вибору цілей', 'error');
+            console.warn('Group selection denied: user is not admin');
+            return;
+        }
+        
         if (state.active) return;
         
         state.active = true;
@@ -1033,16 +1052,22 @@
      * @param {boolean} active - Whether active
      */
     function updateToggleButton(active) {
-        if (!toggleButton) {
-            toggleButton = document.getElementById('toggleSelectionBtn');
-        }
+        // Update both possible toggle buttons
+        const buttons = [
+            document.getElementById('toggleSelectionBtn'),
+            document.getElementById('groupSelectionProBtn')
+        ].filter(Boolean);
         
-        if (toggleButton) {
+        buttons.forEach(btn => {
             if (active) {
-                toggleButton.classList.add('active');
+                btn.classList.add('active');
             } else {
-                toggleButton.classList.remove('active');
+                btn.classList.remove('active');
             }
+        });
+        
+        if (!toggleButton && buttons.length > 0) {
+            toggleButton = buttons[0];
         }
     }
 
@@ -1054,11 +1079,21 @@
     function init() {
         console.log('Initializing Group Control System...');
         
-        // Wire up toggle button if present
+        // Wire up toggle button if present (legacy)
         toggleButton = document.getElementById('toggleSelectionBtn');
         if (toggleButton) {
             toggleButton.addEventListener('click', toggleGroupSelection);
-            console.log('Toggle button wired');
+            console.log('Toggle button (legacy) wired');
+        }
+        
+        // Wire up new group selection button if present
+        const groupSelectionBtn = document.getElementById('groupSelectionProBtn');
+        if (groupSelectionBtn) {
+            // Button already has onclick handler in HTML, but we'll also track it
+            if (!toggleButton) {
+                toggleButton = groupSelectionBtn;
+            }
+            console.log('Group selection button found');
         }
     }
 

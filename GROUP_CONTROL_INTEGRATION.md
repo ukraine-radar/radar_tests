@@ -6,13 +6,16 @@ The Group Control System (Режим вибору цілей) is a professional,
 
 ## Features
 
+- **Admin-Only Access**: Only administrators can enable group selection mode
 - **Desktop Selection**: Click to toggle, Shift+drag for box selection
 - **Mobile Selection**: Tap to toggle, long-press to start drag
 - **Performant Rendering**: Handles 1000+ targets smoothly with rAF throttling
 - **Group Actions**: Course, Speed, Type, Delete, Clear, Exit
+- **Explicit Exit**: "Вийти ×" button reliably exits mode and hides menu
 - **Keyboard Support**: Esc to disable, Ctrl/Cmd+A to select all
 - **Accessibility**: ARIA labels, focus-visible styling, reduced motion support
 - **Responsive UI**: Adaptive bottom action bar with blur background
+- **Popup Suppression**: Marker popups are suppressed only when selection mode is active
 
 ## Installation
 
@@ -32,18 +35,20 @@ Add the following before your closing `</body>` tag, after your existing scripts
 <script src="groupControl.js"></script>
 ```
 
-### 2. Optional: Add Toggle Button
+### 2. Add Toggle Button to Admin Panel
 
-Add a toggle button to your UI to enable/disable group selection mode:
+Add the toggle button to your admin panel to enable/disable group selection mode:
 
 ```html
-<button id="toggleSelectionBtn" class="header-btn">
-    <i class="fas fa-layer-group"></i>
-    <span>Вибір цілей</span>
+<!-- Group Control System Toggle Button -->
+<button class="btn btn-margin" id="groupSelectionProBtn" onclick="if(window.groupControl) window.groupControl.toggleGroupSelection()">
+    <i class="fas fa-layer-group"></i>Груповий вибір цілей
 </button>
 ```
 
-The module will automatically wire this button if it finds an element with id `toggleSelectionBtn`.
+The module will automatically wire this button if it finds an element with id `groupSelectionProBtn` or `toggleSelectionBtn`.
+
+**Important**: Place this button in the Admin panel section, as only administrators can use the group selection feature.
 
 ## Public API
 
@@ -127,6 +132,20 @@ console.log('Selected count:', window.groupControlState.selected.size);
 console.log('Selected IDs:', Array.from(window.groupControlState.selected));
 ```
 
+## Admin-Only Access
+
+The Group Control System is **restricted to administrators only**. The system checks for admin status using multiple possible flags:
+
+```javascript
+// Checks in order:
+- window.isAdmin === true
+- window.auth.isAdmin === true  
+- window.currentUser.role === 'admin'
+```
+
+If a non-admin user attempts to enable group selection, they will see an error notification:
+**"Лише адміністратори можуть використовувати режим вибору цілей"**
+
 ## Behavior Summary
 
 ### Desktop
@@ -151,7 +170,13 @@ When targets are selected, the action bar appears at the bottom with these actio
 - **Тип (Type)**: Prompt for type, apply to all selected
 - **Видалити (Delete)**: Confirm and delete all selected targets
 - **Очистити вибір (Clear Selection)**: Deselect all targets
-- **❌ Вийти (Exit)**: Exit selection mode
+- **Вийти × (Exit)**: Exit selection mode - reliably calls `disableGroupSelection()` and hides the action bar
+
+### Popup Behavior
+
+- **Outside selection mode**: Marker popups open normally on click
+- **In selection mode**: Marker popups are suppressed; clicks toggle selection instead
+- This ensures smooth selection workflow without popup interference
 
 ## Integration with Existing Hooks
 
