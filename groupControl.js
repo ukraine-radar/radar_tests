@@ -1117,4 +1117,118 @@
         init();
     }
 
+    /* Group Control Module for Leaflet — ONLY admin panel toggle, live isAdmin check, auto-removal upper button
+   Author: Copilot
+*/
+
+(function () {
+  'use strict';
+
+  // --- Live admin check ---
+  function isAdmin() {
+    try {
+      if (window.isAdmin === true) return true;
+      if (window.auth?.isAdmin === true) return true;
+      if (window.currentUser?.role === 'admin') return true;
+    } catch (_) {}
+    return false;
+  }
+
+  // --- Remove upper (header/title) toggle if present ---
+  function removeHeaderToggle() {
+    // Кнопка сверху может называться "Вибір цілей" или иметь id 'toggleSelectionBtn'
+    let btn = document.getElementById('toggleSelectionBtn');
+    if (btn && btn.parentElement) btn.parentElement.removeChild(btn);
+
+    // Найти по тексту (в верхней панели)
+    const allBtns = Array.from(document.querySelectorAll('button'));
+    allBtns.forEach(b => {
+      if ((b.textContent || '').trim() === 'Вибір цілей') {
+        if (b.parentElement) b.parentElement.removeChild(b);
+      }
+    });
+  }
+
+  // --- Mount admin-only toggle in admin panel ONLY ---
+  function mountAdminToggleButton() {
+    removeHeaderToggle(); // удалить верхнюю кнопку
+
+    // Найти admin panel
+    const panel =
+      document.querySelector('#adminPanel') ||
+      document.querySelector('.panel-section.admin') ||
+      document.querySelector('[data-panel="admin"]') ||
+      document.querySelector('.panel-section');
+    if (!panel) return;
+
+    // Найти анкор "Режим вибору цілей поганий"
+    const anchor = Array.from(panel.querySelectorAll('button')).find(
+      b => (b.textContent || '').trim().includes('Режим вибору цілей поганий')
+    );
+
+    // Создать только одну кнопку (id=groupSelectionProBtn)
+    let btn = document.getElementById('groupSelectionProBtn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'groupSelectionProBtn';
+      btn.type = 'button';
+      btn.className = 'btn btn-margin';
+      btn.textContent = 'Груповий вибір цілей';
+      btn.onclick = () => window.groupControl && window.groupControl.toggleGroupSelection();
+      btn.addEventListener('touchend', e => {
+        e.preventDefault();
+        window.groupControl && window.groupControl.toggleGroupSelection();
+      }, { passive: false });
+    }
+
+    // Вставить под анкор или в конец панели
+    if (anchor?.parentElement) anchor.insertAdjacentElement('afterend', btn);
+    else panel.appendChild(btn);
+
+    // Live admin gating: enable/disable button
+    const updateButtonState = () => {
+      const admin = isAdmin();
+      btn.disabled = !admin;
+      btn.style.opacity = admin ? '1' : '0.6';
+      btn.style.pointerEvents = admin ? 'auto' : 'none';
+      btn.title = admin ? '' : 'Лише адміністратори можуть використовувати режим вибору цілей';
+    };
+
+    updateButtonState();
+
+    // Live update on login/logout events
+    window.addEventListener('user-login', updateButtonState);
+    window.addEventListener('user-logout', updateButtonState);
+    setInterval(updateButtonState, 2000); // fallback polling
+  }
+
+  // --- Patch enableGroupSelection to always check admin status ---
+  function patchEnableGroupSelection() {
+    if (!window.groupControl) return;
+    const origEnable = window.groupControl.enableGroupSelection;
+    window.groupControl.enableGroupSelection = function () {
+      if (!isAdmin()) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('Лише адміністратори можуть використовувати режим вибору цілей', 'error');
+        } else {
+          alert('Лише адміністратори можуть використовувати режим вибору цілей');
+        }
+        return;
+      }
+      return origEnable.apply(this, arguments);
+    };
+  }
+
+  // --- Init ---
+  function tryInit() {
+    mountAdminToggleButton();
+    patchEnableGroupSelection();
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(tryInit, 0);
+  } else {
+    document.addEventListener('DOMContentLoaded', tryInit);
+  }
+    
 })();
